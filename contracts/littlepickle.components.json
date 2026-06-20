@@ -1,0 +1,614 @@
+{
+  "$name": "LittlePickle Component Contracts",
+  "$version": "1.0.0",
+  "status": "stable",
+  "platforms": [
+    "ios",
+    "android",
+    "web-prototype"
+  ],
+  "themeModes": [
+    "light"
+  ],
+  "components": [
+    {
+      "id": "component.action.qr",
+      "name": "QR action",
+      "version": "1.0.0",
+      "status": "stable",
+      "purpose": "Begin league entry by opening the QR scanning flow.",
+      "props": {
+        "label": {
+          "type": "string",
+          "required": false,
+          "default": "Scan league QR"
+        },
+        "supportingText": {
+          "type": "string",
+          "required": false,
+          "default": null
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        },
+        "errorMessage": {
+          "type": "string",
+          "required": false,
+          "default": null
+        }
+      },
+      "states": [
+        "default",
+        "pressed",
+        "focused",
+        "disabled",
+        "error"
+      ],
+      "accessibility": {
+        "role": "button",
+        "nameRule": "Accessible name describes scanning a league QR code.",
+        "keyboard": [
+          "Enter",
+          "Space"
+        ],
+        "focusBehavior": "Visible 2px Club Royal ring with 2px offset.",
+        "minimumTarget": "48x48"
+      },
+      "tokens": [
+        "color.surface.card",
+        "color.border.control",
+        "color.action.primary",
+        "color.surface.info",
+        "radius.control",
+        "size.qr-action.minimum-height",
+        "size.icon.primary"
+      ],
+      "constraints": {
+        "fullWidth": true,
+        "minimumHeight": 160,
+        "padding": 20,
+        "forbiddenCompositions": [
+          "Nested inside a generic card",
+          "Icon-only label",
+          "Automatic camera permission before activation"
+        ]
+      },
+      "events": {
+        "scanRequested": {
+          "payload": {
+            "source": "home"
+          }
+        }
+      },
+      "provenance": {
+        "source": {
+          "designSystem": "LittlePickle v1.0",
+          "wireframes": [
+            "Home Wireframe",
+            "Play Wireframe"
+          ]
+        },
+        "updatedAt": "2026-06-19",
+        "generatedFrom": "Approved design workshop decisions"
+      }
+    },
+    {
+      "id": "component.field.search",
+      "name": "Search field",
+      "version": "1.0.0",
+      "status": "stable",
+      "purpose": "Search leagues on Home or players on Play.",
+      "props": {
+        "scope": {
+          "type": "enum",
+          "required": true,
+          "values": [
+            "league",
+            "player"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "required": false,
+          "default": ""
+        },
+        "label": {
+          "type": "string",
+          "required": true
+        },
+        "placeholder": {
+          "type": "string",
+          "required": true
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        },
+        "errorMessage": {
+          "type": "string",
+          "required": false,
+          "default": null
+        }
+      },
+      "states": [
+        "default",
+        "focused",
+        "disabled",
+        "error"
+      ],
+      "accessibility": {
+        "role": "searchbox",
+        "nameRule": "A persistent accessible label is required; placeholder is not the label.",
+        "keyboard": [
+          "Text input",
+          "Enter submits",
+          "Escape clears when clear action exists"
+        ],
+        "focusBehavior": "Club Royal border plus outer focus ring.",
+        "minimumTarget": "52px minimum height"
+      },
+      "tokens": [
+        "component.field.background",
+        "component.field.border",
+        "component.field.radius",
+        "component.field.minHeight",
+        "size.icon.compact"
+      ],
+      "constraints": {
+        "fullWidth": true,
+        "minimumHeight": 52,
+        "horizontalPadding": 16,
+        "forbiddenCompositions": [
+          "Search icon without an accessible label",
+          "Fixed height that clips enlarged text"
+        ]
+      },
+      "events": {
+        "queryChanged": {
+          "payload": {
+            "query": "string",
+            "scope": "league|player"
+          }
+        },
+        "querySubmitted": {
+          "payload": {
+            "query": "string",
+            "scope": "league|player"
+          }
+        },
+        "queryCleared": {
+          "payload": {
+            "scope": "league|player"
+          }
+        }
+      },
+      "provenance": {
+        "source": {
+          "designSystem": "LittlePickle v1.0",
+          "wireframes": [
+            "Home Wireframe",
+            "Play Wireframe"
+          ]
+        },
+        "updatedAt": "2026-06-19",
+        "generatedFrom": "Approved design workshop decisions"
+      }
+    },
+    {
+      "id": "component.card.match",
+      "name": "Match card",
+      "version": "1.0.0",
+      "status": "stable",
+      "purpose": "Present a recommended or active match and score-report action.",
+      "props": {
+        "matchId": {
+          "type": "string",
+          "required": true
+        },
+        "teams": {
+          "type": "array",
+          "required": true,
+          "constraints": "Exactly two teams; each team contains one or two players."
+        },
+        "startsAt": {
+          "type": "datetime",
+          "required": false,
+          "default": null
+        },
+        "courtLabel": {
+          "type": "string",
+          "required": false,
+          "default": null
+        },
+        "score": {
+          "type": "object|null",
+          "required": false,
+          "default": null
+        },
+        "winnerTeamId": {
+          "type": "string|null",
+          "required": false,
+          "default": null
+        },
+        "canReportScore": {
+          "type": "boolean",
+          "required": false,
+          "default": true
+        }
+      },
+      "states": [
+        "default",
+        "focused-within",
+        "disabled",
+        "error"
+      ],
+      "accessibility": {
+        "role": "group or section",
+        "nameRule": "Card has a programmatic heading such as Recommended match or Match against Maya and Jules.",
+        "keyboard": [
+          "Tab reaches each Pass action and Report score separately"
+        ],
+        "focusBehavior": "Individual interactive children receive focus; whole card is not one button.",
+        "minimumTarget": "48x48 for each action"
+      },
+      "tokens": [
+        "component.match-card.background",
+        "component.match-card.border",
+        "component.match-card.radius",
+        "component.match-card.padding",
+        "component.match-card.shadow",
+        "type.metric.score"
+      ],
+      "constraints": {
+        "fullWidth": true,
+        "padding": 16,
+        "forbiddenCompositions": [
+          "Nested cards",
+          "Whole-card click target",
+          "Red treatment for normal loss",
+          "Green-only winner state"
+        ]
+      },
+      "events": {
+        "playerPassed": {
+          "payload": {
+            "matchId": "string",
+            "playerId": "string"
+          }
+        },
+        "scoreReportRequested": {
+          "payload": {
+            "matchId": "string"
+          }
+        }
+      },
+      "provenance": {
+        "source": {
+          "designSystem": "LittlePickle v1.0",
+          "wireframes": [
+            "Home Wireframe",
+            "Play Wireframe"
+          ]
+        },
+        "updatedAt": "2026-06-19",
+        "generatedFrom": "Approved design workshop decisions"
+      }
+    },
+    {
+      "id": "component.row.player",
+      "name": "Player row",
+      "version": "1.0.0",
+      "status": "stable",
+      "purpose": "Represent a player in Current players or inside a match.",
+      "props": {
+        "playerId": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "meta": {
+          "type": "string",
+          "required": false,
+          "default": null
+        },
+        "avatarInitials": {
+          "type": "string",
+          "required": false,
+          "default": null
+        },
+        "selected": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        },
+        "action": {
+          "type": "enum",
+          "required": false,
+          "values": [
+            "add",
+            "remove",
+            "pass",
+            "none"
+          ],
+          "default": "none"
+        }
+      },
+      "states": [
+        "default",
+        "pressed",
+        "focused",
+        "selected",
+        "disabled"
+      ],
+      "accessibility": {
+        "role": "listitem",
+        "nameRule": "Trailing action includes the player name, such as Add Alex Morgan or Pass on Alex Morgan.",
+        "keyboard": [
+          "Enter or Space activates trailing action"
+        ],
+        "focusBehavior": "Only the actionable control receives focus unless the row itself is selectable.",
+        "minimumTarget": "48x48 trailing action"
+      },
+      "tokens": [
+        "size.player-row.minimum-height",
+        "size.avatar.default",
+        "color.border.subtle",
+        "color.surface.social",
+        "radius.control"
+      ],
+      "constraints": {
+        "minimumHeight": 64,
+        "avatarSize": 36,
+        "forbiddenCompositions": [
+          "Generic card wrapper for every row",
+          "Color-only availability",
+          "One-line clipping of long names"
+        ]
+      },
+      "events": {
+        "playerSelectionChanged": {
+          "payload": {
+            "playerId": "string",
+            "selected": "boolean"
+          }
+        },
+        "playerActionRequested": {
+          "payload": {
+            "playerId": "string",
+            "action": "add|remove|pass"
+          }
+        }
+      },
+      "provenance": {
+        "source": {
+          "designSystem": "LittlePickle v1.0",
+          "wireframes": [
+            "Home Wireframe",
+            "Play Wireframe"
+          ]
+        },
+        "updatedAt": "2026-06-19",
+        "generatedFrom": "Approved design workshop decisions"
+      }
+    },
+    {
+      "id": "component.button.action",
+      "name": "Action button",
+      "version": "1.0.0",
+      "status": "stable",
+      "purpose": "Provide primary and inline text actions.",
+      "props": {
+        "variant": {
+          "type": "enum",
+          "required": false,
+          "values": [
+            "primary",
+            "text"
+          ],
+          "default": "primary"
+        },
+        "label": {
+          "type": "string",
+          "required": true
+        },
+        "icon": {
+          "type": "string|null",
+          "required": false,
+          "default": null
+        },
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        }
+      },
+      "states": [
+        "default",
+        "pressed",
+        "focused",
+        "disabled"
+      ],
+      "accessibility": {
+        "role": "button",
+        "nameRule": "Visible label is the accessible name unless additional context is required.",
+        "keyboard": [
+          "Enter",
+          "Space"
+        ],
+        "focusBehavior": "Visible 2px Club Royal ring with 2px offset.",
+        "minimumTarget": "48x48; primary minimum height 52"
+      },
+      "tokens": [
+        "component.button.primary.background",
+        "component.button.primary.pressed",
+        "component.button.primary.foreground",
+        "component.button.primary.radius",
+        "component.button.primary.minHeight",
+        "type.label.action"
+      ],
+      "constraints": {
+        "forbiddenCompositions": [
+          "All-caps labels",
+          "Press scaling",
+          "Icon-only destructive or navigation action"
+        ]
+      },
+      "events": {
+        "pressed": {
+          "payload": {
+            "actionId": "string"
+          }
+        }
+      },
+      "provenance": {
+        "source": {
+          "designSystem": "LittlePickle v1.0",
+          "wireframes": [
+            "Home Wireframe",
+            "Play Wireframe"
+          ]
+        },
+        "updatedAt": "2026-06-19",
+        "generatedFrom": "Approved design workshop decisions"
+      }
+    },
+    {
+      "id": "component.navigation.bottom",
+      "name": "Bottom navigation",
+      "version": "1.0.0",
+      "status": "stable",
+      "purpose": "Navigate among Home, Play, and Profile.",
+      "props": {
+        "activeDestination": {
+          "type": "enum",
+          "required": true,
+          "values": [
+            "home",
+            "play",
+            "profile"
+          ]
+        }
+      },
+      "states": [
+        "default",
+        "focused",
+        "selected"
+      ],
+      "accessibility": {
+        "role": "native tab bar or web navigation landmark",
+        "nameRule": "Each destination exposes its visible label.",
+        "keyboard": [
+          "Tab on web",
+          "Enter activates destination"
+        ],
+        "focusBehavior": "Focused destination uses standard focus ring; selected destination uses outlined pill and selected state.",
+        "minimumTarget": "48x48 per destination"
+      },
+      "tokens": [
+        "component.navigation.active",
+        "component.navigation.inactive",
+        "component.navigation.height",
+        "size.icon.default",
+        "type.label.navigation"
+      ],
+      "constraints": {
+        "itemCount": 3,
+        "order": [
+          "home",
+          "play",
+          "profile"
+        ],
+        "fixedToBottom": true,
+        "forbiddenCompositions": [
+          "Icon-only items",
+          "More than three destinations",
+          "Hidden labels",
+          "Filled royal-blue navigation bar"
+        ]
+      },
+      "events": {
+        "destinationChanged": {
+          "payload": {
+            "destination": "home|play|profile"
+          }
+        }
+      },
+      "provenance": {
+        "source": {
+          "designSystem": "LittlePickle v1.0",
+          "wireframes": [
+            "Home Wireframe",
+            "Play Wireframe"
+          ]
+        },
+        "updatedAt": "2026-06-19",
+        "generatedFrom": "Approved design workshop decisions"
+      }
+    }
+  ],
+  "patterns": [
+    {
+      "id": "pattern.screen.home",
+      "components": [
+        "component.action.qr",
+        "component.field.search",
+        "component.navigation.bottom"
+      ],
+      "order": [
+        "brand-heading",
+        "qr-action",
+        "or-separator",
+        "league-search",
+        "flexible-space",
+        "bottom-navigation"
+      ],
+      "activeDestination": "home",
+      "forbidden": [
+        "Recommended matches block",
+        "Hero gradient",
+        "Generic card wrapper"
+      ]
+    },
+    {
+      "id": "pattern.screen.play",
+      "components": [
+        "component.card.match",
+        "component.field.search",
+        "component.row.player",
+        "component.button.action",
+        "component.navigation.bottom"
+      ],
+      "order": [
+        "recommended-matches-heading",
+        "match-card-list",
+        "current-players-heading",
+        "player-search",
+        "player-list",
+        "match-history-text-action",
+        "bottom-navigation"
+      ],
+      "activeDestination": "play",
+      "forbidden": [
+        "Nested match cards",
+        "Card wrapper around player list"
+      ]
+    }
+  ],
+  "provenance": {
+    "source": {
+      "designSystem": "LittlePickle v1.0",
+      "wireframes": [
+        "Home Wireframe",
+        "Play Wireframe"
+      ]
+    },
+    "updatedAt": "2026-06-19",
+    "generatedFrom": "Approved design workshop decisions"
+  }
+}

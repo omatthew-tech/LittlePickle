@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "LittlePickle",
+    "slug": "littlepickle",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": ["ios"],
+    "userInterfaceStyle": "light",
+    "scheme": "littlepickle",
+    "ios": {
+      "bundleIdentifier": "com.littlepickle.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "UIUserInterfaceStyle": "Light"
+      }
+    }
+  }
+}

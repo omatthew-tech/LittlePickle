@@ -1,0 +1,25 @@
+{
+  "name": "LittlePickle Design System",
+  "version": "1.0.0",
+  "updated": "2026-06-19",
+  "files": [
+    "LittlePickle_Design_System.md",
+    "README.md",
+    "agents/AGENTS.md",
+    "contracts/littlepickle.components.json",
+    "icons/add-player.svg",
+    "icons/check.svg",
+    "icons/error.svg",
+    "icons/history.svg",
+    "icons/home.svg",
+    "icons/play.svg",
+    "icons/profile.svg",
+    "icons/scan.svg",
+    "icons/score.svg",
+    "icons/search.svg",
+    "manifest.json",
+    "tokens/littlepickle.tokens.json",
+    "visual/LittlePickle_Design_System_Reference.png",
+    "web/littlepickle.css"
+  ]
+}

@@ -1,0 +1,617 @@
+{
+  "$name": "LittlePickle Design Tokens",
+  "$version": "1.0.0",
+  "$updated": "2026-06-19",
+  "mode": {
+    "$type": "string",
+    "$value": "light"
+  },
+  "color": {
+    "raw": {
+      "blue": {
+        "100": {
+          "$type": "color",
+          "$value": "#E8ECFA",
+          "$description": "Blue Chalk"
+        },
+        "500": {
+          "$type": "color",
+          "$value": "#4B63C6",
+          "$description": "Club Royal"
+        },
+        "700": {
+          "$type": "color",
+          "$value": "#3D50A8",
+          "$description": "Match Point"
+        }
+      },
+      "green": {
+        "300": {
+          "$type": "color",
+          "$value": "#CBDDA4",
+          "$description": "Pickle Leaf"
+        }
+      },
+      "paper": {
+        "0": {
+          "$type": "color",
+          "$value": "#FFFDF8",
+          "$description": "Club Card"
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#F6F2E8",
+          "$description": "Court Paper"
+        }
+      },
+      "ink": {
+        "900": {
+          "$type": "color",
+          "$value": "#22283A",
+          "$description": "Scoreboard Ink"
+        }
+      },
+      "gray": {
+        "150": {
+          "$type": "color",
+          "$value": "#D8D5CD",
+          "$description": "Shoe Dust"
+        },
+        "400": {
+          "$type": "color",
+          "$value": "#7F8592",
+          "$description": "Court Edge"
+        },
+        "600": {
+          "$type": "color",
+          "$value": "#686D7A",
+          "$description": "Net Cord"
+        }
+      },
+      "berry": {
+        "500": {
+          "$type": "color",
+          "$value": "#BE3E68",
+          "$description": "Rally Berry"
+        }
+      }
+    },
+    "semantic": {
+      "surface": {
+        "canvas": {
+          "$type": "color",
+          "$value": "{color.raw.paper.50}"
+        },
+        "card": {
+          "$type": "color",
+          "$value": "{color.raw.paper.0}"
+        },
+        "info": {
+          "$type": "color",
+          "$value": "{color.raw.blue.100}"
+        },
+        "social": {
+          "$type": "color",
+          "$value": "{color.raw.green.300}"
+        }
+      },
+      "text": {
+        "primary": {
+          "$type": "color",
+          "$value": "{color.raw.ink.900}"
+        },
+        "secondary": {
+          "$type": "color",
+          "$value": "{color.raw.gray.600}"
+        },
+        "on-primary": {
+          "$type": "color",
+          "$value": "{color.raw.paper.0}"
+        },
+        "selected": {
+          "$type": "color",
+          "$value": "{color.raw.blue.700}"
+        },
+        "disabled": {
+          "$type": "color",
+          "$value": "{color.raw.gray.600}"
+        }
+      },
+      "action": {
+        "primary": {
+          "$type": "color",
+          "$value": "{color.raw.blue.500}"
+        },
+        "primary-pressed": {
+          "$type": "color",
+          "$value": "{color.raw.blue.700}"
+        },
+        "disabled": {
+          "$type": "color",
+          "$value": "{color.raw.gray.150}"
+        }
+      },
+      "border": {
+        "control": {
+          "$type": "color",
+          "$value": "{color.raw.gray.400}"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "{color.raw.gray.150}"
+        },
+        "active": {
+          "$type": "color",
+          "$value": "{color.raw.blue.500}"
+        },
+        "error": {
+          "$type": "color",
+          "$value": "{color.raw.berry.500}"
+        }
+      },
+      "focus": {
+        "ring": {
+          "$type": "color",
+          "$value": "{color.raw.blue.500}"
+        }
+      },
+      "feedback": {
+        "error": {
+          "$type": "color",
+          "$value": "{color.raw.berry.500}"
+        }
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "interface": {
+        "$type": "fontFamily",
+        "$value": [
+          "Cabin",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "sans-serif"
+        ]
+      },
+      "metric": {
+        "$type": "fontFamily",
+        "$value": [
+          "Go Mono",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Consolas",
+          "monospace"
+        ]
+      }
+    },
+    "weight": {
+      "regular": {
+        "$type": "fontWeight",
+        "$value": 400
+      },
+      "medium": {
+        "$type": "fontWeight",
+        "$value": 500
+      },
+      "semibold": {
+        "$type": "fontWeight",
+        "$value": 600
+      },
+      "bold": {
+        "$type": "fontWeight",
+        "$value": 700
+      }
+    }
+  },
+  "type": {
+    "heading": {
+      "brand": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.interface}",
+          "fontSize": "32px",
+          "fontWeight": 700,
+          "letterSpacing": "-0.01em",
+          "lineHeight": "40px"
+        }
+      },
+      "page": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.interface}",
+          "fontSize": "28px",
+          "fontWeight": 700,
+          "letterSpacing": "-0.01em",
+          "lineHeight": "36px"
+        }
+      },
+      "section": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.interface}",
+          "fontSize": "20px",
+          "fontWeight": 600,
+          "letterSpacing": "0em",
+          "lineHeight": "24px"
+        }
+      }
+    },
+    "title": {
+      "card": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.interface}",
+          "fontSize": "17px",
+          "fontWeight": 600,
+          "letterSpacing": "0em",
+          "lineHeight": "24px"
+        }
+      }
+    },
+    "body": {
+      "default": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.interface}",
+          "fontSize": "16px",
+          "fontWeight": 400,
+          "letterSpacing": "0em",
+          "lineHeight": "24px"
+        }
+      },
+      "secondary": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.interface}",
+          "fontSize": "14px",
+          "fontWeight": 400,
+          "letterSpacing": "0em",
+          "lineHeight": "20px"
+        }
+      }
+    },
+    "label": {
+      "action": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.interface}",
+          "fontSize": "16px",
+          "fontWeight": 600,
+          "letterSpacing": "0em",
+          "lineHeight": "20px"
+        }
+      },
+      "navigation": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.interface}",
+          "fontSize": "12px",
+          "fontWeight": 600,
+          "letterSpacing": "0.01em",
+          "lineHeight": "16px"
+        }
+      }
+    },
+    "metric": {
+      "score": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.metric}",
+          "fontSize": "36px",
+          "fontWeight": 700,
+          "letterSpacing": "-0.02em",
+          "lineHeight": "40px"
+        }
+      },
+      "record": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.metric}",
+          "fontSize": "24px",
+          "fontWeight": 700,
+          "letterSpacing": "-0.02em",
+          "lineHeight": "28px"
+        }
+      },
+      "detail": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.metric}",
+          "fontSize": "14px",
+          "fontWeight": 400,
+          "letterSpacing": "0em",
+          "lineHeight": "20px"
+        }
+      }
+    }
+  },
+  "space": {
+    "0": {
+      "$type": "dimension",
+      "$value": "0px"
+    },
+    "2": {
+      "$type": "dimension",
+      "$value": "2px"
+    },
+    "4": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "6": {
+      "$type": "dimension",
+      "$value": "6px"
+    },
+    "8": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "12": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "16": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "20": {
+      "$type": "dimension",
+      "$value": "20px"
+    },
+    "24": {
+      "$type": "dimension",
+      "$value": "24px"
+    },
+    "28": {
+      "$type": "dimension",
+      "$value": "28px"
+    },
+    "32": {
+      "$type": "dimension",
+      "$value": "32px"
+    },
+    "40": {
+      "$type": "dimension",
+      "$value": "40px"
+    },
+    "48": {
+      "$type": "dimension",
+      "$value": "48px"
+    },
+    "64": {
+      "$type": "dimension",
+      "$value": "64px"
+    }
+  },
+  "layout": {
+    "screen": {
+      "inset": {
+        "$type": "dimension",
+        "$value": "{space.20}"
+      }
+    },
+    "section": {
+      "gap": {
+        "$type": "dimension",
+        "$value": "{space.28}"
+      }
+    },
+    "stack": {
+      "default": {
+        "$type": "dimension",
+        "$value": "{space.12}"
+      },
+      "compact": {
+        "$type": "dimension",
+        "$value": "{space.6}"
+      }
+    },
+    "inline": {
+      "default": {
+        "$type": "dimension",
+        "$value": "{space.12}"
+      }
+    },
+    "icon-label": {
+      "gap": {
+        "$type": "dimension",
+        "$value": "{space.6}"
+      }
+    },
+    "card": {
+      "padding": {
+        "$type": "dimension",
+        "$value": "{space.16}"
+      }
+    }
+  },
+  "size": {
+    "target": {
+      "minimum": {
+        "$type": "dimension",
+        "$value": "48px"
+      }
+    },
+    "control": {
+      "minimum-height": {
+        "$type": "dimension",
+        "$value": "52px"
+      }
+    },
+    "player-row": {
+      "minimum-height": {
+        "$type": "dimension",
+        "$value": "64px"
+      }
+    },
+    "qr-action": {
+      "minimum-height": {
+        "$type": "dimension",
+        "$value": "160px"
+      }
+    },
+    "navigation": {
+      "bottom-height": {
+        "$type": "dimension",
+        "$value": "72px"
+      }
+    },
+    "avatar": {
+      "default": {
+        "$type": "dimension",
+        "$value": "36px"
+      }
+    },
+    "icon": {
+      "compact": {
+        "$type": "dimension",
+        "$value": "20px"
+      },
+      "default": {
+        "$type": "dimension",
+        "$value": "24px"
+      },
+      "primary": {
+        "$type": "dimension",
+        "$value": "28px"
+      }
+    }
+  },
+  "radius": {
+    "control": {
+      "$type": "dimension",
+      "$value": "14px"
+    },
+    "card": {
+      "$type": "dimension",
+      "$value": "18px"
+    },
+    "pill": {
+      "$type": "dimension",
+      "$value": "999px"
+    }
+  },
+  "border": {
+    "interactive": {
+      "$type": "dimension",
+      "$value": "1.5px"
+    },
+    "quiet": {
+      "$type": "dimension",
+      "$value": "1px"
+    },
+    "focus": {
+      "$type": "dimension",
+      "$value": "2px"
+    }
+  },
+  "shadow": {
+    "card": {
+      "$type": "shadow",
+      "$value": {
+        "color": "rgba(34,40,58,0.10)",
+        "offsetX": "0px",
+        "offsetY": "4px",
+        "blur": "12px",
+        "spread": "0px"
+      }
+    }
+  },
+  "motion": {
+    "quick": {
+      "$type": "duration",
+      "$value": "120ms"
+    },
+    "easing": {
+      "$type": "cubicBezier",
+      "$value": [
+        0,
+        0,
+        0.2,
+        1
+      ]
+    }
+  },
+  "component": {
+    "button": {
+      "primary": {
+        "background": {
+          "$type": "color",
+          "$value": "{color.semantic.action.primary}"
+        },
+        "pressed": {
+          "$type": "color",
+          "$value": "{color.semantic.action.primary-pressed}"
+        },
+        "foreground": {
+          "$type": "color",
+          "$value": "{color.semantic.text.on-primary}"
+        },
+        "radius": {
+          "$type": "dimension",
+          "$value": "{radius.control}"
+        },
+        "minHeight": {
+          "$type": "dimension",
+          "$value": "{size.control.minimum-height}"
+        }
+      }
+    },
+    "field": {
+      "background": {
+        "$type": "color",
+        "$value": "{color.semantic.surface.card}"
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{color.semantic.border.control}"
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{radius.control}"
+      },
+      "minHeight": {
+        "$type": "dimension",
+        "$value": "{size.control.minimum-height}"
+      }
+    },
+    "match-card": {
+      "background": {
+        "$type": "color",
+        "$value": "{color.semantic.surface.card}"
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{color.semantic.border.subtle}"
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": "{radius.card}"
+      },
+      "padding": {
+        "$type": "dimension",
+        "$value": "{layout.card.padding}"
+      },
+      "shadow": {
+        "$type": "shadow",
+        "$value": "{shadow.card}"
+      }
+    },
+    "navigation": {
+      "active": {
+        "$type": "color",
+        "$value": "{color.semantic.action.primary}"
+      },
+      "inactive": {
+        "$type": "color",
+        "$value": "{color.semantic.text.secondary}"
+      },
+      "height": {
+        "$type": "dimension",
+        "$value": "{size.navigation.bottom-height}"
+      }
+    }
+  }
+}
