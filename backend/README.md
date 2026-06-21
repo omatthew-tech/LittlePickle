@@ -1,0 +1,171 @@
+# LittlePickle Match Flow API
+
+FastAPI service for the match-flow commands that should stay authoritative:
+
+- completing a match and generating the next recommendations
+- passing a player and regenerating recommendations
+- accepting a recommendation and creating the active match
+- regenerating recommendations for an active session
+
+The Expo app can still read ordinary data directly from Supabase. This service exists for queue/match mutations and the recommendation algorithm.
+
+## Environment
+
+Create `backend/.env`:
+
+```sh
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+CORS_ALLOWED_ORIGINS=*
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=your-smtp-username
+SMTP_PASSWORD=your-smtp-password
+SMTP_SENDER=no-reply@example.com
+SMTP_USE_TLS=true
+```
+
+The service role key must only live on the server. Do not put it in the Expo app.
+SMTP settings are required for league QR code email delivery.
+
+## Run locally
+
+```sh
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+For Expo Go on a physical phone, expose the backend on your LAN:
+
+```sh
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Health check:
+
+```sh
+curl http://127.0.0.1:8000/health
+```
+
+Run smoke checks:
+
+```sh
+python scripts/smoke_check.py
+```
+
+Run the live Supabase smoke check with an existing test user:
+
+```sh
+$env:LIVE_TEST_EMAIL="test@example.com"
+$env:LIVE_TEST_PASSWORD="test-password"
+python scripts/live_smoke_check.py
+```
+
+For a fully temporary test user, use the server-only service role key in `backend/.env`:
+
+```sh
+$env:LIVE_TEST_CREATE_TEMP_USER="1"
+python scripts/live_smoke_check.py
+```
+
+Alternatively, set `SUPABASE_ACCESS_TOKEN` to a signed-in test user's access token. The live smoke check creates a timestamped test organization, guest players, a session, regenerates recommendations, starts a match, reports a score, passes a player, closes the session, and deletes the test organization. Temporary-user mode also deletes the temporary auth user.
+
+Run pytest checks:
+
+```sh
+pytest -q
+```
+
+On the current Windows desktop shell, pytest may print all passing tests and then hang during process teardown. The smoke check exits cleanly and covers the same local API contract.
+
+## Deploy
+
+The backend includes a Dockerfile and a Render blueprint at the repo root:
+
+```sh
+backend/Dockerfile
+render.yaml
+```
+
+Set these production environment variables in the host:
+
+```sh
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+CORS_ALLOWED_ORIGINS
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_SENDER
+SMTP_USE_TLS
+```
+
+## Local preview without Supabase
+
+`POST /recommendations/preview` accepts a snapshot and returns `number_of_courts + 1` recommendations:
+
+```json
+{
+  "organization": {
+    "id": "sample-club",
+    "number_of_courts": 3
+  },
+  "session": {
+    "id": "sample-session",
+    "status": "open",
+    "current_round": 0
+  },
+  "players": [
+    { "id": "p01", "name": "Avery", "skill": 3.6, "rounds_waiting": 1, "queue_position": 0, "games_played": 0 },
+    { "id": "p02", "name": "Blake", "skill": 3.55, "rounds_waiting": 1, "queue_position": 1, "games_played": 0 },
+    { "id": "p03", "name": "Casey", "skill": 3.7, "rounds_waiting": 0, "queue_position": 2, "games_played": 0 },
+    { "id": "p04", "name": "Devon", "skill": 3.45, "rounds_waiting": 0, "queue_position": 3, "games_played": 0 }
+  ]
+}
+```
+
+## Supabase command flow
+
+Apply `supabase/migrations/202606200001_match_flow.sql`, then call API commands with the signed-in user's Supabase access token:
+
+```http
+Authorization: Bearer <supabase-access-token>
+```
+
+Main flow:
+
+1. `POST /recommendations/{recommendation_id}/accept` creates an active match on the requested court or lowest open court.
+2. `POST /matches/{match_id}/complete` saves the score, advances queue state, regenerates recommendations, stores the new batch in Supabase, and returns it.
+3. `POST /recommendations/{recommendation_id}/pass-player` moves the passed player to the end of the queue, regenerates recommendations, stores the new batch, and returns it.
+
+Supabase RPCs used by the Expo app:
+
+- `my_profile`
+- `update_my_profile`
+- `ensure_current_user_player`
+- `my_organizations`
+- `search_organizations`
+- `join_organization`
+- `create_organization`
+- `organization_members_for_admin`
+- `organization_players_for_admin`
+- `update_organization_settings`
+- `set_organization_member_role`
+- `create_player`
+- `update_organization_player`
+- `create_play_session`
+- `organization_open_sessions`
+- `close_play_session`
+- `add_player_to_session`
+- `remove_player_from_session`
+- `session_player_options`
+- `session_recommendation_snapshot`
+- `active_recommendations`
+- `active_matches`
+- `completed_matches`

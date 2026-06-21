@@ -5,5 +5,10 @@ build/
 ios/
 android/
 *.log
+*.py[cod]
+__pycache__/
 .env
 .env.local
+mockups/
+backend/.venv/
+supabase/.temp/

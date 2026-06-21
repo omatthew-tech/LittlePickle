@@ -7,6 +7,27 @@
     "platforms": ["ios"],
     "userInterfaceStyle": "light",
     "scheme": "littlepickle",
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "LittlePickle uses your camera to scan league QR codes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "LittlePickle uses your photos so you can choose a profile picture."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "LittlePickle saves league QR codes to your photo library.",
+          "savePhotosPermission": "LittlePickle saves league QR codes to your photo library."
+        }
+      ]
+    ],
     "ios": {
       "bundleIdentifier": "com.littlepickle.app",
       "supportsTablet": false,

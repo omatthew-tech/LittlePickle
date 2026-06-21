@@ -3,19 +3,44 @@ import { StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BottomNavigation } from "./src/components/BottomNavigation";
 import { type Destination, theme } from "./src/design/theme";
+import { AuthProvider } from "./src/lib/auth";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { PlayScreen } from "./src/screens/PlayScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
+  );
+}
+
+function AppShell() {
   const [activeDestination, setActiveDestination] = useState<Destination>("home");
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(process.env.EXPO_PUBLIC_DEFAULT_SESSION_ID ?? null);
 
   return (
     <SafeAreaProvider>
       <View style={styles.app}>
         <StatusBar backgroundColor={theme.color.surface.canvas} barStyle="dark-content" />
-        {activeDestination === "home" ? <HomeScreen /> : null}
-        {activeDestination === "play" ? <PlayScreen /> : null}
+        {activeDestination === "home" ? (
+          <HomeScreen
+            onSessionSelected={(sessionId) => {
+              setActiveSessionId(sessionId);
+              setActiveDestination("play");
+            }}
+          />
+        ) : null}
+        {activeDestination === "play" ? (
+          <PlayScreen
+            onSessionClosed={() => {
+              setActiveSessionId(null);
+              setActiveDestination("home");
+            }}
+            sessionId={activeSessionId}
+          />
+        ) : null}
         {activeDestination === "profile" ? <ProfileScreen /> : null}
         <BottomNavigation activeDestination={activeDestination} onDestinationChanged={setActiveDestination} />
       </View>

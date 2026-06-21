@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "../design/theme";
 import { RallyIcon } from "./RallyIcon";
 
@@ -7,6 +7,7 @@ type PlayerAction = "add" | "remove" | "pass" | "none";
 type PlayerRowProps = {
   action?: PlayerAction;
   avatarInitials?: string | null;
+  avatarUrl?: string | null;
   density?: "default" | "compact";
   meta?: string | null;
   name: string;
@@ -19,6 +20,7 @@ type PlayerRowProps = {
 export function PlayerRow({
   action = "none",
   avatarInitials,
+  avatarUrl,
   density = "default",
   meta,
   name,
@@ -46,9 +48,13 @@ export function PlayerRow({
       ]}
     >
       <View style={styles.avatar}>
-        <Text numberOfLines={1} style={styles.avatarText}>
-          {avatarInitials ?? initialsFor(name)}
-        </Text>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <Text numberOfLines={1} style={styles.avatarText}>
+            {avatarInitials ?? initialsFor(name)}
+          </Text>
+        )}
       </View>
       <View style={styles.identity}>
         <Text style={styles.name}>{name}</Text>
@@ -120,7 +126,12 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     height: theme.size.avatarDefault,
     justifyContent: "center",
+    overflow: "hidden",
     width: theme.size.avatarDefault
+  },
+  avatarImage: {
+    height: "100%",
+    width: "100%"
   },
   avatarText: {
     ...theme.type.bodySecondary,

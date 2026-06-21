@@ -1,27 +1,59 @@
 import { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionButton } from "../components/ActionButton";
 import { MatchCard } from "../components/MatchCard";
 import { PlayerRow } from "../components/PlayerRow";
 import { SearchField } from "../components/SearchField";
-import { currentPlayers, recommendedMatch } from "../data/sampleClub";
+import { ScoreReportModal } from "../components/ScoreReportModal";
 import { theme } from "../design/theme";
+import {
+  activeMatchLabel,
+  activeMatchTeams,
+  recommendationId,
+  recommendationLabel,
+  recommendationTeams
+} from "../lib/matchRecommendationMapping";
+import { usePlaySession } from "../lib/usePlaySession";
 
-export function PlayScreen() {
+type PlayScreenProps = {
+  onSessionClosed?: () => void;
+  sessionId?: string | null;
+};
+
+export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
   const insets = useSafeAreaInsets();
+  const {
+    activeMatches,
+    canStartRecommendedMatch,
+    closeSession,
+    completeActiveMatch,
+    completedMatches,
+    courtCount,
+    errorMessage,
+    live,
+    loading,
+    passRecommendedPlayer,
+    players,
+    recommendations,
+    refresh,
+    setPlayerInSession,
+    startRecommendedMatch
+  } = usePlaySession(sessionId);
   const [playerQuery, setPlayerQuery] = useState("");
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set(["maya-chen"]));
+  const [scoreMatchId, setScoreMatchId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const visiblePlayers = useMemo(() => {
     const normalizedQuery = playerQuery.trim().toLowerCase();
 
     if (!normalizedQuery) {
-      return currentPlayers;
+      return players;
     }
 
-    return currentPlayers.filter((player) => player.name.toLowerCase().includes(normalizedQuery));
-  }, [playerQuery]);
+    return players.filter((player) => player.name.toLowerCase().includes(normalizedQuery));
+  }, [playerQuery, players]);
 
   function togglePlayer(playerId: string, selected: boolean) {
     setSelectedPlayerIds((previous) => {
@@ -37,6 +69,70 @@ export function PlayScreen() {
     });
   }
 
+  async function handlePlayerMembership(playerId: string, inSession: boolean) {
+    if (!live) {
+      togglePlayer(playerId, inSession);
+      return;
+    }
+
+    await setPlayerInSession(playerId, inSession);
+  }
+
+  async function handlePassPlayer(matchId: string, playerId: string) {
+    if (!live) {
+      Alert.alert("Pass", `Passed on ${friendlyPlayerName(playerId)}.`);
+      return;
+    }
+
+    await passRecommendedPlayer(matchId, playerId);
+  }
+
+  async function handleStartMatch(matchId: string) {
+    if (!live) {
+      Alert.alert("Start match", "Match starting will connect to Supabase once live session data is configured.");
+      return;
+    }
+
+    if (!canStartRecommendedMatch) {
+      Alert.alert("Courts full", "Report a score before starting another match.");
+      return;
+    }
+
+    await startRecommendedMatch(matchId);
+  }
+
+  async function handleSubmitScore(teamOneScore: number, teamTwoScore: number) {
+    if (!scoreMatchId) {
+      return;
+    }
+
+    const matchId = scoreMatchId;
+    setScoreMatchId(null);
+    await completeActiveMatch(matchId, teamOneScore, teamTwoScore);
+  }
+
+  function handleEndSession() {
+    Alert.alert("End session", "Close this play session?", [
+      {
+        text: "Cancel",
+        style: "cancel"
+      },
+      {
+        text: "End session",
+        style: "destructive",
+        onPress: () => {
+          void closeSession().then((closed) => {
+            if (closed) {
+              onSessionClosed?.();
+            }
+          });
+        }
+      }
+    ]);
+  }
+
+  const scoreMatch = activeMatches.find((match) => match.id === scoreMatchId) ?? null;
+
   return (
     <ScrollView
       contentContainerStyle={[
@@ -51,13 +147,52 @@ export function PlayScreen() {
       <Text accessibilityRole="header" style={styles.pageTitle}>
         Recommended matches
       </Text>
+      {live && courtCount ? (
+        <Text style={styles.sessionMeta}>
+          {activeMatches.length}/{courtCount} courts active
+        </Text>
+      ) : null}
+      {errorMessage ? (
+        <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+          {errorMessage}
+        </Text>
+      ) : null}
+      {loading ? <ActivityIndicator color={theme.color.action.primary} style={styles.loading} /> : null}
+      {activeMatches.length > 0 ? (
+        <View style={styles.activeSection}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>
+            Active matches
+          </Text>
+          <View style={styles.matchList}>
+            {activeMatches.map((match) => (
+              <MatchCard
+                courtLabel={activeMatchLabel(match)}
+                key={match.id}
+                matchId={match.id}
+                onPassPlayer={() => undefined}
+                onReportScore={(matchId) => setScoreMatchId(matchId)}
+                playerAction="none"
+                primaryActionLabel="Report score"
+                teams={activeMatchTeams(match)}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
       <View style={styles.matchList}>
-        <MatchCard
-          matchId={recommendedMatch.id}
-          onPassPlayer={(_, playerId) => Alert.alert("Pass", `Passed on ${friendlyPlayerName(playerId)}.`)}
-          onReportScore={() => Alert.alert("Report score", "Score reporting will connect to Supabase match records.")}
-          teams={recommendedMatch.teams}
-        />
+        {recommendations.map((match) => (
+          <MatchCard
+            courtLabel={recommendationLabel(match)}
+            key={recommendationId(match)}
+            matchId={recommendationId(match)}
+            onPassPlayer={handlePassPlayer}
+            onReportScore={handleStartMatch}
+            canReportScore={canStartRecommendedMatch}
+            primaryActionLabel={canStartRecommendedMatch ? "Start match" : "Courts full"}
+            teams={recommendationTeams(match)}
+          />
+        ))}
+        {!loading && recommendations.length === 0 ? <Text style={styles.emptyText}>No recommended matches yet.</Text> : null}
       </View>
 
       <View style={styles.playersSection}>
@@ -75,23 +210,72 @@ export function PlayScreen() {
         <View accessibilityLabel="Current players" accessibilityRole="list" style={styles.playerList}>
           {visiblePlayers.map((player) => (
             <PlayerRow
-              action="add"
+              action={live && player.isPlaying ? "none" : player.inSession ? "remove" : "add"}
               avatarInitials={player.initials}
+              avatarUrl={player.avatarUrl}
               key={player.id}
+              meta={[player.skill ? player.skill.toFixed(2) : null, player.isPlaying ? "Playing" : null].filter(Boolean).join(" | ")}
               name={player.name}
-              onAction={() => togglePlayer(player.id, true)}
-              onSelectionChange={(selected) => togglePlayer(player.id, selected)}
-              selected={selectedPlayerIds.has(player.id)}
+              onAction={(action) => void handlePlayerMembership(player.id, action === "add")}
+              onSelectionChange={(selected) => void handlePlayerMembership(player.id, selected)}
+              selected={player.inSession ?? selectedPlayerIds.has(player.id)}
             />
           ))}
         </View>
         <ActionButton
           icon="history"
-          label="View match history"
-          onPress={() => Alert.alert("Match history", "Match history will open once historical score data is connected.")}
+          label={showHistory ? "Hide match history" : "View match history"}
+          onPress={() => {
+            setShowHistory((visible) => !visible);
+          }}
           variant="text"
         />
+        {live ? (
+          <ActionButton
+            icon="history"
+            label="Refresh recommendations"
+            onPress={() => void refresh()}
+            variant="text"
+          />
+        ) : null}
+        {live ? (
+          <ActionButton
+            disabled={loading || activeMatches.length > 0}
+            label="End session"
+            onPress={handleEndSession}
+            variant="text"
+          />
+        ) : null}
+        {showHistory ? (
+          <View style={styles.historySection}>
+            {completedMatches.length > 0 ? (
+              completedMatches.map((match) => (
+                <View key={match.id} style={styles.historyRow}>
+                  <View style={styles.historyText}>
+                    <Text style={styles.historyTitle}>
+                      {match.court_number ? `Court ${match.court_number}` : "Completed match"}
+                    </Text>
+                    <Text style={styles.historyMeta}>{completedMatchTeams(match)}</Text>
+                  </View>
+                  <Text style={styles.historyScore}>
+                    {match.team_one_score ?? "-"}-{match.team_two_score ?? "-"}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>
+                {live ? "No completed matches yet." : "Match history will appear once live score data is connected."}
+              </Text>
+            )}
+          </View>
+        ) : null}
       </View>
+      <ScoreReportModal
+        matchLabel={scoreMatch ? activeMatchLabel(scoreMatch) : "Active match"}
+        onClose={() => setScoreMatchId(null)}
+        onSubmit={handleSubmitScore}
+        visible={Boolean(scoreMatchId)}
+      />
     </ScrollView>
   );
 }
@@ -103,11 +287,69 @@ function friendlyPlayerName(playerId: string) {
     .join(" ");
 }
 
+function completedMatchTeams(match: { players: Array<{ name: string; team_number: 1 | 2 }> }) {
+  const teamOne = match.players
+    .filter((player) => player.team_number === 1)
+    .map((player) => player.name)
+    .join(" + ");
+  const teamTwo = match.players
+    .filter((player) => player.team_number === 2)
+    .map((player) => player.name)
+    .join(" + ");
+
+  return `${teamOne} vs ${teamTwo}`;
+}
+
 const styles = StyleSheet.create({
+  activeSection: {
+    marginTop: theme.layout.sectionGap
+  },
   content: {
     backgroundColor: theme.color.surface.canvas,
     flexGrow: 1,
     paddingHorizontal: theme.layout.screenInset
+  },
+  emptyText: {
+    ...theme.type.bodySecondary,
+    color: theme.color.text.secondary
+  },
+  errorText: {
+    ...theme.type.bodySecondary,
+    color: theme.color.feedback.error,
+    marginTop: theme.space[8]
+  },
+  historyMeta: {
+    ...theme.type.bodySecondary,
+    color: theme.color.text.secondary
+  },
+  historyRow: {
+    alignItems: "center",
+    backgroundColor: theme.color.surface.card,
+    borderColor: theme.color.border.subtle,
+    borderRadius: theme.radius.card,
+    borderWidth: theme.border.quiet,
+    flexDirection: "row",
+    gap: theme.layout.inlineDefault,
+    padding: theme.layout.cardPadding
+  },
+  historyScore: {
+    ...theme.type.metricRecord,
+    color: theme.color.text.primary
+  },
+  historySection: {
+    gap: theme.layout.stackCompact
+  },
+  historyText: {
+    flex: 1,
+    gap: theme.space[2],
+    minWidth: 0
+  },
+  historyTitle: {
+    ...theme.type.titleCard,
+    color: theme.color.text.primary
+  },
+  loading: {
+    marginTop: theme.layout.stackDefault
   },
   matchList: {
     gap: theme.layout.stackCompact,
@@ -127,5 +369,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...theme.type.headingSection,
     color: theme.color.text.primary
+  },
+  sessionMeta: {
+    ...theme.type.bodySecondary,
+    color: theme.color.text.secondary,
+    marginTop: theme.space[4]
   }
 });

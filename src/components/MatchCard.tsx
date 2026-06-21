@@ -4,6 +4,7 @@ import { ActionButton } from "./ActionButton";
 import { PlayerRow } from "./PlayerRow";
 
 export type MatchPlayer = {
+  avatarUrl?: string | null;
   id: string;
   name: string;
   meta?: string;
@@ -20,6 +21,8 @@ type MatchCardProps = {
   matchId: string;
   onPassPlayer: (matchId: string, playerId: string) => void;
   onReportScore: (matchId: string) => void;
+  playerAction?: "pass" | "none";
+  primaryActionLabel?: string;
   startsAtLabel?: string | null;
   teams: [MatchTeam, MatchTeam];
 };
@@ -30,10 +33,12 @@ export function MatchCard({
   matchId,
   onPassPlayer,
   onReportScore,
+  playerAction = "pass",
+  primaryActionLabel = "Report score",
   startsAtLabel,
   teams
 }: MatchCardProps) {
-  const metadata = [courtLabel, startsAtLabel].filter(Boolean).join(" • ");
+  const metadata = [courtLabel, startsAtLabel].filter(Boolean).join(" | ");
 
   return (
     <View style={styles.container}>
@@ -46,8 +51,9 @@ export function MatchCard({
         <View style={styles.team}>
           {teams[0].players.map((player) => (
             <PlayerRow
-              action="pass"
+              action={playerAction}
               avatarInitials={playerInitials(player.name)}
+              avatarUrl={player.avatarUrl}
               density="compact"
               key={player.id}
               meta={player.meta}
@@ -67,8 +73,9 @@ export function MatchCard({
         <View style={styles.team}>
           {teams[1].players.map((player) => (
             <PlayerRow
-              action="pass"
+              action={playerAction}
               avatarInitials={playerInitials(player.name)}
+              avatarUrl={player.avatarUrl}
               density="compact"
               key={player.id}
               meta={player.meta}
@@ -83,7 +90,7 @@ export function MatchCard({
         <ActionButton
           disabled={!canReportScore}
           icon="score"
-          label="Report score"
+          label={primaryActionLabel}
           onPress={() => onReportScore(matchId)}
           style={styles.reportButton}
         />
