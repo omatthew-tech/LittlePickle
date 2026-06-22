@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionButton } from "../components/ActionButton";
+import { FormStepLayout } from "../components/FormStepLayout";
 import { QRAction } from "../components/QRAction";
 import { SearchField } from "../components/SearchField";
 import { theme } from "../design/theme";
@@ -713,10 +714,13 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
             </Text>
           ) : null}
           {loading ? <ActivityIndicator color={theme.color.action.primary} /> : null}
-          <ActionButton disabled={loading} label="Create a league" onPress={beginCreateLeague} />
           {renderSearchResults()}
           {renderLocalGuestLeagues()}
           {renderYourLeagues()}
+          <View style={styles.createLeagueCta}>
+            <Text style={styles.createLeaguePrompt}>Looking to start a league?</Text>
+            <ActionButton disabled={loading} label="Create league" onPress={beginCreateLeague} />
+          </View>
         </View>
       </>
     );
@@ -897,29 +901,35 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
         );
       case "name":
         return (
-          <View style={styles.flow}>
-            <Text accessibilityRole="header" style={styles.pageTitle}>What is the name of your league?</Text>
+          <FormStepLayout
+            currentStep={1}
+            onBack={() => setCreateStep("intro")}
+            onPrimaryPress={() => setCreateStep("courts")}
+            primaryDisabled={!draft.name.trim()}
+            title="What's the name of your league?"
+            totalSteps={4}
+          >
             <TextInput
               accessibilityLabel="League name"
               autoCapitalize="words"
               onChangeText={(value) => updateDraft("name", value)}
-              placeholder="League name"
+              placeholder="Glennville Pickleball Association"
               placeholderTextColor={theme.color.text.secondary}
               style={styles.input}
               value={draft.name}
             />
-            <View style={styles.bottomActions}>
-              <ActionButton label="Go back" onPress={() => setCreateStep("intro")} variant="text" />
-              <ActionButton disabled={!draft.name.trim()} label="Next" onPress={() => setCreateStep("courts")} />
-            </View>
-          </View>
+          </FormStepLayout>
         );
       case "courts":
         return (
-          <View style={styles.flow}>
-            <Text accessibilityRole="header" style={styles.pageTitle}>
-              How many pickleball courts are usually available?
-            </Text>
+          <FormStepLayout
+            currentStep={2}
+            onBack={() => setCreateStep("name")}
+            onPrimaryPress={() => setCreateStep("location")}
+            primaryDisabled={!validCourtCount(draft.courtCount)}
+            title="How many pickleball courts are usually available?"
+            totalSteps={4}
+          >
             <Text style={styles.helpText}>You can change this later.</Text>
             <TextInput
               accessibilityLabel="Number of courts"
@@ -930,20 +940,18 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
               style={styles.input}
               value={draft.courtCount}
             />
-            <View style={styles.bottomActions}>
-              <ActionButton label="Go back" onPress={() => setCreateStep("name")} variant="text" />
-              <ActionButton
-                disabled={!validCourtCount(draft.courtCount)}
-                label="Next"
-                onPress={() => setCreateStep("location")}
-              />
-            </View>
-          </View>
+          </FormStepLayout>
         );
       case "location":
         return (
-          <View style={styles.flow}>
-            <Text accessibilityRole="header" style={styles.pageTitle}>Where are your pickleball courts located?</Text>
+          <FormStepLayout
+            currentStep={3}
+            onBack={() => setCreateStep("courts")}
+            onPrimaryPress={() => setCreateStep("verify")}
+            primaryDisabled={!draft.locationText.trim()}
+            title="Where are your pickleball courts located?"
+            totalSteps={4}
+          >
             <Text style={styles.helpText}>Enter an address or zip code.</Text>
             <TextInput
               accessibilityLabel="Court address or zip code"
@@ -953,16 +961,19 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
               style={styles.input}
               value={draft.locationText}
             />
-            <View style={styles.bottomActions}>
-              <ActionButton label="Go back" onPress={() => setCreateStep("courts")} variant="text" />
-              <ActionButton disabled={!draft.locationText.trim()} label="Next" onPress={() => setCreateStep("verify")} />
-            </View>
-          </View>
+          </FormStepLayout>
         );
       case "verify":
         return (
-          <View style={styles.flow}>
-            <Text accessibilityRole="header" style={styles.pageTitle}>Verify your email</Text>
+          <FormStepLayout
+            currentStep={4}
+            onBack={() => setCreateStep("location")}
+            onPrimaryPress={() => void verifyAndCreateLeague()}
+            primaryDisabled={loading || (!session?.user.email && (!draft.email.trim() || !draft.otp.trim()))}
+            primaryLabel="Create league"
+            title="Verify your email"
+            totalSteps={4}
+          >
             {session?.user.email ? (
               <Text style={styles.bodyText}>You are signed in as {session.user.email}.</Text>
             ) : (
@@ -977,7 +988,12 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
                   style={styles.input}
                   value={draft.email}
                 />
-                <ActionButton disabled={loading || !draft.email.trim()} label={draft.otpSent ? "Send again" : "Send code"} onPress={() => void sendOtp()} />
+                <ActionButton
+                  disabled={loading || !draft.email.trim()}
+                  label={draft.otpSent ? "Send again" : "Send code"}
+                  onPress={() => void sendOtp()}
+                  style={styles.formBodyButton}
+                />
                 {draft.otpSent ? (
                   <TextInput
                     accessibilityLabel="Verification code"
@@ -993,19 +1009,7 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
             )}
             {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
             {loading ? <ActivityIndicator color={theme.color.action.primary} /> : null}
-            <View style={styles.bottomActions}>
-              <ActionButton
-                label="Go back"
-                onPress={() => setCreateStep("location")}
-                variant="text"
-              />
-              <ActionButton
-                disabled={loading || (!session?.user.email && (!draft.email.trim() || !draft.otp.trim()))}
-                label="Create league"
-                onPress={() => void verifyAndCreateLeague()}
-              />
-            </View>
-          </View>
+          </FormStepLayout>
         );
       case "success":
         return renderSuccess();
@@ -1243,6 +1247,20 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: theme.layout.screenInset
   },
+  createLeagueCta: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.layout.inlineDefault,
+    justifyContent: "space-between",
+    marginTop: theme.layout.sectionGap
+  },
+  createLeaguePrompt: {
+    ...theme.type.bodyDefault,
+    color: theme.color.text.primary,
+    flex: 1,
+    minWidth: 180
+  },
   emptyText: {
     ...theme.type.bodySecondary,
     color: theme.color.text.secondary
@@ -1257,6 +1275,9 @@ const styles = StyleSheet.create({
   },
   flow: {
     gap: theme.layout.stackDefault
+  },
+  formBodyButton: {
+    alignSelf: "stretch"
   },
   helpText: {
     ...theme.type.bodySecondary,
