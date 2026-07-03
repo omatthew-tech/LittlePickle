@@ -29,6 +29,7 @@ export function SearchField({
   const [focused, setFocused] = useState(false);
   const hasError = Boolean(errorMessage);
   const showCompletionPlaceholder = Boolean(value && completionPlaceholder);
+  const completionText = /\s$/.test(value) ? completionPlaceholder : ` ${completionPlaceholder}`;
 
   return (
     <View>
@@ -50,7 +51,7 @@ export function SearchField({
               style={styles.completionText}
             >
               <Text style={styles.completionSpacer}>{value}</Text>
-              <Text>{` ${completionPlaceholder}`}</Text>
+              <Text>{completionText}</Text>
             </Text>
           ) : null}
           <TextInput

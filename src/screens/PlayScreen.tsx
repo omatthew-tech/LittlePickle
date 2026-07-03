@@ -57,7 +57,11 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
     return players.filter((player) => player.name.toLowerCase().includes(normalizedQuery));
   }, [normalizedPlayerQuery, players]);
 
-  const shouldShowLastNamePlaceholder = Boolean(normalizedPlayerQuery && visiblePlayers.length === 0);
+  const shouldShowLastNamePlaceholder = Boolean(
+    normalizedPlayerQuery &&
+      visiblePlayers.length === 0 &&
+      !hasFirstAndLastName(normalizedPlayerQuery)
+  );
   const newPlayerName = normalizedPlayerQuery;
   const queryHasFirstAndLastName = hasFirstAndLastName(newPlayerName);
   const exactPlayerNameExists = useMemo(
@@ -67,6 +71,11 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
 
   async function handlePlayerMembership(playerId: string, inSession: boolean) {
     await setPlayerInSession(playerId, inSession);
+  }
+
+  function handlePlayerQueryChange(query: string) {
+    setPlayerQuery(normalizePlayerQueryInput(query));
+    setAddPlayerError(null);
   }
 
   async function handleAddQueriedPlayer() {
@@ -212,10 +221,7 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
         <SearchField
           completionPlaceholder={shouldShowLastNamePlaceholder ? "Last name" : null}
           label="Add player"
-          onChangeText={(query) => {
-            setPlayerQuery(query);
-            setAddPlayerError(null);
-          }}
+          onChangeText={handlePlayerQueryChange}
           onSubmit={() => undefined}
           placeholder="Add player"
           scope="player"
@@ -331,6 +337,10 @@ function completedMatchTeams(match: { players: Array<{ name: string; team_number
 
 function normalizeDisplayName(value: string) {
   return value.trim().replace(/\s+/g, " ");
+}
+
+function normalizePlayerQueryInput(value: string) {
+  return value.trimStart().replace(/\s+/g, " ");
 }
 
 function hasFirstAndLastName(value: string) {
