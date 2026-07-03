@@ -57,11 +57,7 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
     return players.filter((player) => player.name.toLowerCase().includes(normalizedQuery));
   }, [normalizedPlayerQuery, players]);
 
-  const shouldShowLastNamePlaceholder = Boolean(
-    normalizedPlayerQuery &&
-      visiblePlayers.length === 0 &&
-      !hasFirstAndLastName(normalizedPlayerQuery)
-  );
+  const shouldUseLastNameCompletion = Boolean(normalizedPlayerQuery && visiblePlayers.length === 0);
   const newPlayerName = normalizedPlayerQuery;
   const queryHasFirstAndLastName = hasFirstAndLastName(newPlayerName);
   const exactPlayerNameExists = useMemo(
@@ -219,7 +215,7 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
           Current players
         </Text>
         <SearchField
-          completionPlaceholder={shouldShowLastNamePlaceholder ? "Last name" : null}
+          completionPlaceholder={shouldUseLastNameCompletion ? "Last name" : null}
           label="Add player"
           onChangeText={handlePlayerQueryChange}
           onSubmit={() => undefined}
