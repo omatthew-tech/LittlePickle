@@ -25,6 +25,12 @@ export type CreatePlayerInput = {
   userId: string | null;
 };
 
+export type CreateSessionQueuedPlayerInput = {
+  displayName: string;
+  rating?: number;
+  sessionId: string;
+};
+
 export type UpdateOrganizationPlayerInput = {
   active: boolean;
   displayName: string;
@@ -223,6 +229,14 @@ export async function createPlayer(input: CreatePlayerInput) {
   });
 }
 
+export async function createSessionQueuedPlayer(input: CreateSessionQueuedPlayerInput) {
+  return rpc<string>("create_session_queued_player", {
+    p_display_name: input.displayName,
+    p_rating: input.rating ?? 3,
+    p_session_id: input.sessionId
+  });
+}
+
 export async function updateOrganizationPlayer(input: UpdateOrganizationPlayerInput) {
   return rpc<OrganizationPlayerSummary[]>("update_organization_player", {
     p_player_id: input.playerId,
@@ -360,8 +374,12 @@ function friendlyRpcMessage(functionName: string, error: RpcError) {
     return `Supabase schema is out of date for ${functionName}. Apply all Supabase migrations, then try again.`;
   }
 
-  if (searchable.includes("authentication required") || error.code === "42501") {
+  if (searchable.includes("authentication required")) {
     return "Your email was verified, but the app could not use the new session yet. Try pressing Create league again.";
+  }
+
+  if (searchable.includes("not allowed") || error.code === "42501") {
+    return "You do not have permission to make that league change.";
   }
 
   return [message, details, hint].filter(Boolean).join(" ") || `Could not call ${functionName}.`;

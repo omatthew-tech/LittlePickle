@@ -4,17 +4,19 @@ import { theme } from "../design/theme";
 import { RallyIcon } from "./RallyIcon";
 
 type SearchFieldProps = {
+  completionPlaceholder?: string | null;
   disabled?: boolean;
   errorMessage?: string | null;
   label: string;
   onChangeText: (query: string) => void;
   onSubmit?: (query: string) => void;
-  placeholder: "Search for a league" | "Search players";
+  placeholder: "Add player" | "Search for a league" | "Search players";
   scope: "league" | "player";
   value: string;
 };
 
 export function SearchField({
+  completionPlaceholder = null,
   disabled = false,
   errorMessage = null,
   label,
@@ -26,6 +28,7 @@ export function SearchField({
 }: SearchFieldProps) {
   const [focused, setFocused] = useState(false);
   const hasError = Boolean(errorMessage);
+  const showCompletionPlaceholder = Boolean(value && completionPlaceholder);
 
   return (
     <View>
@@ -38,21 +41,34 @@ export function SearchField({
         ]}
       >
         <RallyIcon color={hasError ? theme.color.feedback.error : theme.color.text.secondary} name="search" size={20} />
-        <TextInput
-          accessibilityLabel={label}
-          accessibilityRole="search"
-          autoCapitalize="none"
-          editable={!disabled}
-          onBlur={() => setFocused(false)}
-          onChangeText={onChangeText}
-          onFocus={() => setFocused(true)}
-          onSubmitEditing={() => onSubmit?.(value)}
-          placeholder={placeholder}
-          placeholderTextColor={theme.color.text.secondary}
-          returnKeyType="search"
-          style={styles.input}
-          value={value}
-        />
+        <View style={styles.inputLayer}>
+          {showCompletionPlaceholder ? (
+            <Text
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={styles.completionText}
+            >
+              <Text style={styles.completionSpacer}>{value}</Text>
+              <Text>{` ${completionPlaceholder}`}</Text>
+            </Text>
+          ) : null}
+          <TextInput
+            accessibilityLabel={label}
+            accessibilityRole="search"
+            autoCapitalize="none"
+            editable={!disabled}
+            onBlur={() => setFocused(false)}
+            onChangeText={onChangeText}
+            onFocus={() => setFocused(true)}
+            onSubmitEditing={() => onSubmit?.(value)}
+            placeholder={placeholder}
+            placeholderTextColor={theme.color.text.secondary}
+            returnKeyType="search"
+            style={styles.input}
+            value={value}
+          />
+        </View>
         {hasError ? <RallyIcon color={theme.color.feedback.error} name="error" size={20} /> : null}
       </View>
       {hasError ? (
@@ -94,6 +110,23 @@ const styles = StyleSheet.create({
   fieldFocused: {
     borderColor: theme.color.focus.ring
   },
+  completionSpacer: {
+    color: "transparent"
+  },
+  completionText: {
+    ...theme.type.bodyDefault,
+    bottom: 0,
+    color: theme.color.text.secondary,
+    includeFontPadding: false,
+    left: 0,
+    lineHeight: theme.space[20],
+    paddingBottom: theme.space[2],
+    paddingTop: 0,
+    position: "absolute",
+    right: 0,
+    textAlignVertical: "center",
+    top: 0
+  },
   hiddenScope: {
     height: 0,
     opacity: 0
@@ -110,5 +143,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingTop: 0,
     textAlignVertical: "center"
+  },
+  inputLayer: {
+    flex: 1,
+    minHeight: theme.size.controlMinimumHeight
   }
 });

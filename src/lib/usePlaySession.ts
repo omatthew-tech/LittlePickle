@@ -3,6 +3,7 @@ import { currentPlayers as samplePlayers, recommendedMatches as sampleRecommenda
 import {
   addPlayerToSession,
   closePlaySession,
+  createSessionQueuedPlayer,
   getActiveMatches,
   getActiveRecommendations,
   getCompletedMatches,
@@ -35,6 +36,7 @@ const defaultSessionId = process.env.EXPO_PUBLIC_DEFAULT_SESSION_ID;
 type PlaySessionState = {
   errorMessage: string | null;
   activeMatches: ActiveMatch[];
+  addNewPlayerToSession: (displayName: string) => Promise<boolean>;
   canStartRecommendedMatch: boolean;
   completedMatches: CompletedMatch[];
   completeActiveMatch: (matchId: string, teamOneScore: number, teamTwoScore: number) => Promise<void>;
@@ -174,6 +176,52 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
     [liveEnabled, resolvedSessionId]
   );
 
+  const addNewPlayerToSession = useCallback(
+    async (displayName: string) => {
+      const normalizedName = normalizeDisplayName(displayName);
+
+      if (!hasFirstAndLastName(normalizedName)) {
+        setErrorMessage("Enter the player's first and last name.");
+        return false;
+      }
+
+      if (needsLiveSession) {
+        setErrorMessage("Join a league queue from Home.");
+        return false;
+      }
+
+      setLoading(true);
+      setErrorMessage(null);
+
+      try {
+        if (!liveEnabled || !resolvedSessionId) {
+          setPlayers((previousPlayers) => addDemoPlayer(previousPlayers, normalizedName));
+          return true;
+        }
+
+        await createSessionQueuedPlayer({
+          displayName: normalizedName,
+          sessionId: resolvedSessionId
+        });
+
+        await reloadAfterRosterChange(resolvedSessionId, {
+          setActiveMatches,
+          setCourtCount,
+          setCompletedMatches,
+          setPlayers,
+          setRecommendations
+        });
+        return true;
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Could not add player to the queue.");
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [liveEnabled, needsLiveSession, resolvedSessionId]
+  );
+
   const startRecommendedMatch = useCallback(
     async (recommendationId: string) => {
       if (!liveEnabled || !resolvedSessionId) {
@@ -270,6 +318,7 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
   return useMemo(
     () => ({
       activeMatches,
+      addNewPlayerToSession,
       canStartRecommendedMatch,
       closeSession,
       completedMatches,
@@ -287,6 +336,7 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
     }),
     [
       activeMatches,
+      addNewPlayerToSession,
       canStartRecommendedMatch,
       closeSession,
       completedMatches,
@@ -412,4 +462,44 @@ function initialsFor(name: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
+}
+
+function normalizeDisplayName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function hasFirstAndLastName(value: string) {
+  return normalizeDisplayName(value).split(" ").filter(Boolean).length >= 2;
+}
+
+function addDemoPlayer(players: Player[], displayName: string) {
+  const normalizedName = normalizeDisplayName(displayName);
+  const existingPlayer = players.find((player) => normalizeDisplayName(player.name).toLowerCase() === normalizedName.toLowerCase());
+
+  if (existingPlayer) {
+    return players.map((player) =>
+      player.id === existingPlayer.id ? { ...player, inSession: true } : player
+    );
+  }
+
+  const idBase = normalizedName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "player";
+  const existingIds = new Set(players.map((player) => player.id));
+  let id = idBase;
+  let suffix = 2;
+
+  while (existingIds.has(id)) {
+    id = `${idBase}-${suffix}`;
+    suffix += 1;
+  }
+
+  return [
+    ...players,
+    {
+      id,
+      inSession: true,
+      initials: initialsFor(normalizedName),
+      name: normalizedName,
+      skill: 3
+    }
+  ];
 }

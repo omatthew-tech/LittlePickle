@@ -25,6 +25,7 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
   const insets = useSafeAreaInsets();
   const {
     activeMatches,
+    addNewPlayerToSession,
     canStartRecommendedMatch,
     closeSession,
     completeActiveMatch,
@@ -41,41 +42,50 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
     startRecommendedMatch
   } = usePlaySession(sessionId);
   const [playerQuery, setPlayerQuery] = useState("");
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set(["maya-chen"]));
+  const [addPlayerError, setAddPlayerError] = useState<string | null>(null);
   const [scoreMatchId, setScoreMatchId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const normalizedPlayerQuery = normalizeDisplayName(playerQuery);
 
   const visiblePlayers = useMemo(() => {
-    const normalizedQuery = playerQuery.trim().toLowerCase();
+    const normalizedQuery = normalizedPlayerQuery.toLowerCase();
 
     if (!normalizedQuery) {
       return players;
     }
 
     return players.filter((player) => player.name.toLowerCase().includes(normalizedQuery));
-  }, [playerQuery, players]);
+  }, [normalizedPlayerQuery, players]);
 
-  function togglePlayer(playerId: string, selected: boolean) {
-    setSelectedPlayerIds((previous) => {
-      const next = new Set(previous);
-
-      if (selected) {
-        next.add(playerId);
-      } else {
-        next.delete(playerId);
-      }
-
-      return next;
-    });
-  }
+  const shouldShowLastNamePlaceholder = Boolean(normalizedPlayerQuery && visiblePlayers.length === 0);
+  const newPlayerName = normalizedPlayerQuery;
+  const queryHasFirstAndLastName = hasFirstAndLastName(newPlayerName);
+  const exactPlayerNameExists = useMemo(
+    () => players.some((player) => normalizeDisplayName(player.name).toLowerCase() === newPlayerName.toLowerCase()),
+    [newPlayerName, players]
+  );
 
   async function handlePlayerMembership(playerId: string, inSession: boolean) {
-    if (!live) {
-      togglePlayer(playerId, inSession);
+    await setPlayerInSession(playerId, inSession);
+  }
+
+  async function handleAddQueriedPlayer() {
+    if (!queryHasFirstAndLastName) {
+      setAddPlayerError("Enter the player's first and last name.");
       return;
     }
 
-    await setPlayerInSession(playerId, inSession);
+    if (exactPlayerNameExists) {
+      setAddPlayerError("That player is already in the league. Add them from the list.");
+      return;
+    }
+
+    setAddPlayerError(null);
+    const added = await addNewPlayerToSession(newPlayerName);
+
+    if (added) {
+      setPlayerQuery("");
+    }
   }
 
   async function handlePassPlayer(matchId: string, playerId: string) {
@@ -200,10 +210,14 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
           Current players
         </Text>
         <SearchField
-          label="Search players"
-          onChangeText={setPlayerQuery}
+          completionPlaceholder={shouldShowLastNamePlaceholder ? "Last name" : null}
+          label="Add player"
+          onChangeText={(query) => {
+            setPlayerQuery(query);
+            setAddPlayerError(null);
+          }}
           onSubmit={() => undefined}
-          placeholder="Search players"
+          placeholder="Add player"
           scope="player"
           value={playerQuery}
         />
@@ -218,10 +232,25 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
               name={player.name}
               onAction={(action) => void handlePlayerMembership(player.id, action === "add")}
               onSelectionChange={(selected) => void handlePlayerMembership(player.id, selected)}
-              selected={player.inSession ?? selectedPlayerIds.has(player.id)}
+              selected={Boolean(player.inSession)}
             />
           ))}
         </View>
+        {normalizedPlayerQuery && !exactPlayerNameExists ? (
+          <View style={styles.addPlayerPanel}>
+            {addPlayerError ? (
+              <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+                {addPlayerError}
+              </Text>
+            ) : null}
+            <ActionButton
+              disabled={loading || !queryHasFirstAndLastName}
+              label="Add new player"
+              onPress={() => void handleAddQueriedPlayer()}
+              style={styles.addPlayerButton}
+            />
+          </View>
+        ) : null}
         <ActionButton
           icon="history"
           label={showHistory ? "Hide match history" : "View match history"}
@@ -300,7 +329,22 @@ function completedMatchTeams(match: { players: Array<{ name: string; team_number
   return `${teamOne} vs ${teamTwo}`;
 }
 
+function normalizeDisplayName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function hasFirstAndLastName(value: string) {
+  return normalizeDisplayName(value).split(" ").filter(Boolean).length >= 2;
+}
+
 const styles = StyleSheet.create({
+  addPlayerButton: {
+    alignSelf: "stretch"
+  },
+  addPlayerPanel: {
+    gap: theme.layout.stackCompact,
+    paddingVertical: theme.space[6]
+  },
   activeSection: {
     marginTop: theme.layout.sectionGap
   },
