@@ -64,6 +64,11 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
     () => players.some((player) => normalizeDisplayName(player.name).toLowerCase() === newPlayerName.toLowerCase()),
     [newPlayerName, players]
   );
+  const shouldShowAddPlayerPanel = Boolean(
+    normalizedPlayerQuery &&
+      visiblePlayers.length === 0 &&
+      !exactPlayerNameExists
+  );
 
   async function handlePlayerMembership(playerId: string, inSession: boolean) {
     await setPlayerInSession(playerId, inSession);
@@ -238,7 +243,7 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
             />
           ))}
         </View>
-        {normalizedPlayerQuery && !exactPlayerNameExists ? (
+        {shouldShowAddPlayerPanel ? (
           <View style={styles.addPlayerPanel}>
             {addPlayerError ? (
               <Text accessibilityLiveRegion="polite" style={styles.errorText}>
