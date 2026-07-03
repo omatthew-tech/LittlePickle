@@ -4,7 +4,7 @@
     "slug": "littlepickle",
     "version": "0.1.0",
     "orientation": "portrait",
-    "platforms": ["ios"],
+    "platforms": ["ios", "android"],
     "userInterfaceStyle": "light",
     "scheme": "littlepickle",
     "plugins": [
@@ -34,6 +34,10 @@
       "infoPlist": {
         "UIUserInterfaceStyle": "Light"
       }
+    },
+    "android": {
+      "package": "com.littlepickle.app",
+      "softwareKeyboardLayoutMode": "resize"
     }
   }
 }

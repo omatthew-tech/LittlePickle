@@ -141,6 +141,8 @@ export function ProfileScreen() {
   return (
     <ScrollView
       accessibilityLabel="Profile"
+      alwaysBounceVertical={false}
+      bounces={false}
       contentContainerStyle={[
         styles.screen,
         {
@@ -148,6 +150,8 @@ export function ProfileScreen() {
           paddingTop: insets.top + theme.space[20]
         }
       ]}
+      overScrollMode="never"
+      scrollEnabled={false}
     >
       <Text accessibilityRole="header" style={styles.pageTitle}>
         Profile
@@ -288,8 +292,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.control,
     borderWidth: theme.border.interactive,
     color: theme.color.text.primary,
+    height: theme.size.controlMinimumHeight,
+    includeFontPadding: false,
+    lineHeight: theme.space[20],
     minHeight: theme.size.controlMinimumHeight,
-    paddingHorizontal: theme.space[16]
+    paddingBottom: theme.space[2],
+    paddingHorizontal: theme.space[16],
+    paddingTop: 0,
+    textAlignVertical: "center"
   },
   label: {
     ...theme.type.bodySecondary,

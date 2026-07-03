@@ -8,6 +8,7 @@ Authoritative files:
 
 ## Required
 
+- Build and review iOS and Android together. LittlePickle is iOS-first, but Android emulator screenshots are valid development QA input.
 - Light mode only.
 - Use semantic tokens; never place raw hex values in components.
 - Use only these component IDs: `component.action.qr`, `component.field.search`, `component.card.match`, `component.row.player`, `component.button.action`, `component.navigation.bottom`.
@@ -28,4 +29,4 @@ Authoritative files:
 
 ## Before finishing
 
-Validate contrast, target size, text scaling, long names, focus states, and the exact Home/Play composition rules in the design-system specification.
+Validate contrast, target size, text scaling, long names, focus states, Android emulator behavior, and the exact Home/Play composition rules in the design-system specification.

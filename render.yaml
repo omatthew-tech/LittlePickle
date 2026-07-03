@@ -14,6 +14,12 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: "*"
+      - key: SMTP2GO_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: support@joinlittlepickle.com
+      - key: EMAIL_SENDER_NAME
+        value: LittlePickle
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

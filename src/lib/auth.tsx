@@ -82,7 +82,7 @@ async function signIn(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    throw error;
+    throw new Error(friendlyAuthMessage(error, "Could not sign in."));
   }
 }
 
@@ -94,7 +94,7 @@ async function ensureAnonymousSession() {
   const { data: currentSession, error: currentSessionError } = await supabase.auth.getSession();
 
   if (currentSessionError) {
-    throw currentSessionError;
+    throw new Error(friendlyAuthMessage(currentSessionError, "Could not check the current session."));
   }
 
   if (currentSession.session) {
@@ -104,7 +104,7 @@ async function ensureAnonymousSession() {
   const { data, error } = await supabase.auth.signInAnonymously();
 
   if (error) {
-    throw error;
+    throw new Error(friendlyAuthMessage(error, "Could not start a guest session."));
   }
 
   if (!data.session) {
@@ -127,7 +127,12 @@ async function sendEmailOtp(email: string) {
   });
 
   if (error) {
-    throw error;
+    throw new Error(
+      friendlyAuthMessage(
+        error,
+        "Could not send the verification code."
+      )
+    );
   }
 }
 
@@ -143,7 +148,7 @@ async function verifyEmailOtp(email: string, token: string) {
   });
 
   if (error) {
-    throw error;
+    throw new Error(friendlyAuthMessage(error, "Could not verify that code."));
   }
 
   if (!data.session) {
@@ -161,7 +166,7 @@ async function signUp(email: string, password: string) {
   const { error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
-    throw error;
+    throw new Error(friendlyAuthMessage(error, "Could not sign up."));
   }
 }
 
@@ -173,6 +178,117 @@ async function signOut() {
   const { error } = await supabase.auth.signOut();
 
   if (error) {
-    throw error;
+    throw new Error(friendlyAuthMessage(error, "Could not sign out."));
   }
+}
+
+type AuthErrorDetails = {
+  code?: string;
+  message?: string;
+  status?: number;
+};
+
+function friendlyAuthMessage(error: unknown, fallback: string) {
+  const details = authErrorDetails(error);
+  const searchable = [details.code, details.message].filter(Boolean).join(" ").toLowerCase();
+
+  if (details.status === 500 || searchable.includes("unexpected_failure")) {
+    return (
+      "Supabase could not send the verification email. Check Auth email/SMTP settings, " +
+      "sender verification, and provider logs, then try sending the code again."
+    );
+  }
+
+  if (details.status === 429 || searchable.includes("rate limit")) {
+    return "Please wait a minute before requesting another verification code.";
+  }
+
+  if (
+    searchable.includes("anonymous_provider_disabled") ||
+    (searchable.includes("anonymous") && searchable.includes("disabled"))
+  ) {
+    return (
+      "Guest queue entry needs Anonymous sign-ins enabled in Supabase Auth. " +
+      "Enable Anonymous sign-ins in the Supabase dashboard, then try joining again."
+    );
+  }
+
+  if (searchable.includes("email address not authorized")) {
+    return "Supabase is not allowed to email this address yet. Configure custom SMTP or use an authorized project team email.";
+  }
+
+  if (searchable.includes("otp") && (searchable.includes("expired") || searchable.includes("invalid"))) {
+    return "That verification code is invalid or expired. Request a new code and try again.";
+  }
+
+  if (details.message && !looksLikeSerializedResponse(details.message)) {
+    return details.message;
+  }
+
+  return fallback;
+}
+
+function authErrorDetails(error: unknown): AuthErrorDetails {
+  const directDetails = detailsFromRecord(error);
+
+  if (error instanceof Error && error.message) {
+    const parsedDetails = detailsFromSerializedMessage(error.message);
+    return {
+      code: directDetails.code ?? parsedDetails.code,
+      message: directDetails.message ?? parsedDetails.message ?? error.message,
+      status: directDetails.status ?? parsedDetails.status
+    };
+  }
+
+  if (typeof error === "string") {
+    const parsedDetails = detailsFromSerializedMessage(error);
+    return {
+      ...parsedDetails,
+      message: parsedDetails.message ?? error
+    };
+  }
+
+  return directDetails;
+}
+
+function detailsFromSerializedMessage(message: string): AuthErrorDetails {
+  try {
+    return detailsFromRecord(JSON.parse(message));
+  } catch {
+    return {};
+  }
+}
+
+function detailsFromRecord(value: unknown): AuthErrorDetails {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const headers = isRecord(value.headers) ? value.headers : null;
+  const headerMap = headers && isRecord(headers.map) ? headers.map : null;
+
+  return {
+    code: stringValue(value, "code") ?? stringValue(value, "error_code") ?? stringValue(headerMap, "x-sb-error-code"),
+    message: stringValue(value, "message") ?? stringValue(value, "msg") ?? stringValue(value, "error"),
+    status: numberValue(value, "status")
+  };
+}
+
+function looksLikeSerializedResponse(message: string) {
+  const trimmed = message.trim();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object");
+}
+
+function stringValue(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function numberValue(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return typeof value === "number" ? value : undefined;
 }

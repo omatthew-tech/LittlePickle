@@ -102,7 +102,13 @@ const styles = StyleSheet.create({
     ...theme.type.bodyDefault,
     color: theme.color.text.primary,
     flex: 1,
+    height: theme.size.controlMinimumHeight,
+    includeFontPadding: false,
+    lineHeight: theme.space[20],
     minHeight: theme.size.controlMinimumHeight,
-    padding: 0
+    paddingBottom: theme.space[2],
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    textAlignVertical: "center"
   }
 });

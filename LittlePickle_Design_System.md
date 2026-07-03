@@ -1,8 +1,8 @@
 # LittlePickle Design System
 
 **Version:** 1.0.0  
-**Updated:** 2026-06-19  
-**Platform:** Mobile app, light mode only  
+**Updated:** 2026-07-02  
+**Platform:** Mobile app, iOS-first with Android developed in parallel, light mode only  
 **Product:** Local social pickleball club  
 **Screen scope:** Home and Play; Profile remains a navigation destination but its content is outside this release.
 
@@ -29,6 +29,10 @@ Use the files in this package in this order:
 5. `web/littlepickle.css` — optional web/prototype projection; it is not the canonical token source.
 
 Components must consume semantic tokens. Raw hex values, arbitrary spacing, and one-off typography are not allowed in component implementations.
+
+## 2.1 Platform policy
+
+LittlePickle is designed iOS-first, but Android is an active development target. Product and visual decisions should preserve the iOS-first feel while keeping Android functional, readable, and testable on a PC emulator. Android screenshots should be treated as normal QA evidence for layout, text, permissions, keyboard behavior, camera scanning, image picking, and media saving.
 
 ## 3. Color system — Saturday Club
 

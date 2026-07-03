@@ -333,8 +333,36 @@ async function rpc<TResult>(functionName: string, args: Record<string, unknown>)
   const { data, error } = await supabase.rpc(functionName, args);
 
   if (error) {
-    throw error;
+    throw new Error(friendlyRpcMessage(functionName, error));
   }
 
   return data as TResult;
+}
+
+type RpcError = {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  message?: string;
+};
+
+function friendlyRpcMessage(functionName: string, error: RpcError) {
+  const message = error.message ?? "";
+  const details = error.details ?? "";
+  const hint = error.hint ?? "";
+  const searchable = [error.code, message, details, hint].filter(Boolean).join(" ").toLowerCase();
+
+  if (searchable.includes("could not find the function") || searchable.includes("function public.") || error.code === "PGRST202") {
+    return `Supabase is missing the ${functionName} RPC. Apply all Supabase migrations, then try again.`;
+  }
+
+  if (searchable.includes("column") && searchable.includes("does not exist")) {
+    return `Supabase schema is out of date for ${functionName}. Apply all Supabase migrations, then try again.`;
+  }
+
+  if (searchable.includes("authentication required") || error.code === "42501") {
+    return "Your email was verified, but the app could not use the new session yet. Try pressing Create league again.";
+  }
+
+  return [message, details, hint].filter(Boolean).join(" ") || `Could not call ${functionName}.`;
 }

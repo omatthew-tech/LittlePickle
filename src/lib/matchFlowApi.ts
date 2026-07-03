@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { supabase } from "./supabase";
 import type {
   AcceptRecommendationRequest,
@@ -8,9 +9,15 @@ import type {
   RecommendationSnapshot
 } from "../types/matchFlow";
 
-const matchFlowApiUrl = process.env.EXPO_PUBLIC_MATCH_FLOW_API_URL;
+const rawMatchFlowApiUrl = process.env.EXPO_PUBLIC_MATCH_FLOW_API_URL;
+const androidEmulatorMatchFlowApiUrl = process.env.EXPO_PUBLIC_ANDROID_EMULATOR_MATCH_FLOW_API_URL;
 
-export const isMatchFlowApiConfigured = Boolean(matchFlowApiUrl);
+export const matchFlowApiConfigKey = getMatchFlowApiBaseUrl() ?? "unconfigured";
+export const isMatchFlowApiConfigured = matchFlowApiConfigKey !== "unconfigured";
+
+export function getMatchFlowApiBaseUrl() {
+  return resolveMatchFlowApiUrl();
+}
 
 export async function previewRecommendations(snapshot: RecommendationSnapshot) {
   return requestMatchFlow<RecommendationResponse>("/recommendations/preview", {
@@ -77,6 +84,8 @@ type MatchFlowRequest = {
 };
 
 async function requestMatchFlow<TResponse>(path: string, options: MatchFlowRequest): Promise<TResponse> {
+  const matchFlowApiUrl = getMatchFlowApiBaseUrl();
+
   if (!matchFlowApiUrl) {
     throw new Error("EXPO_PUBLIC_MATCH_FLOW_API_URL is not configured.");
   }
@@ -89,11 +98,20 @@ async function requestMatchFlow<TResponse>(path: string, options: MatchFlowReque
     headers.authorization = await getAuthorizationHeader();
   }
 
-  const response = await fetch(`${matchFlowApiUrl}${path}`, {
-    body: options.body ? JSON.stringify(options.body) : undefined,
-    headers,
-    method: options.method
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${matchFlowApiUrl}${path}`, {
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers,
+      method: options.method
+    });
+  } catch (error) {
+    throw new Error(
+      `Could not reach the match flow API at ${matchFlowApiUrl}. ` +
+        "If you are using the Android emulator, set EXPO_PUBLIC_MATCH_FLOW_API_URL to http://10.0.2.2:8000 and make sure the backend is running."
+    );
+  }
 
   if (!response.ok) {
     const detail = await readError(response);
@@ -101,6 +119,52 @@ async function requestMatchFlow<TResponse>(path: string, options: MatchFlowReque
   }
 
   return (await response.json()) as TResponse;
+}
+
+function resolveMatchFlowApiUrl() {
+  if (Platform.OS === "android" && androidEmulatorMatchFlowApiUrl) {
+    return normalizeUrl(androidEmulatorMatchFlowApiUrl);
+  }
+
+  if (!rawMatchFlowApiUrl) {
+    return undefined;
+  }
+
+  if (Platform.OS === "android") {
+    return normalizeUrl(resolveAndroidLocalhostBridge(rawMatchFlowApiUrl));
+  }
+
+  return normalizeUrl(rawMatchFlowApiUrl);
+}
+
+function resolveAndroidLocalhostBridge(url: string) {
+  const trimmedUrl = url.trim();
+  const match = /^(https?:\/\/)([^/:?#]+)(:\d+)?([/?#].*)?$/i.exec(trimmedUrl);
+
+  if (!match) {
+    return url;
+  }
+
+  const [, protocol, hostname, port = "", rest = ""] = match;
+
+  return hostname && isLocalDevelopmentHost(hostname.toLowerCase())
+    ? `${protocol}10.0.2.2${port}${rest}`
+    : trimmedUrl;
+}
+
+function isLocalDevelopmentHost(hostname: string) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0" ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("10.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+  );
+}
+
+function normalizeUrl(url: string) {
+  return url.trim().replace(/\/+$/, "");
 }
 
 async function getAuthorizationHeader() {

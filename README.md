@@ -1,8 +1,8 @@
 # LittlePickle
 
-LittlePickle is an iOS-first React Native app starter built from the approved light-mode mobile design system.
+LittlePickle is an iOS-first React Native app starter built from the approved light-mode mobile design system. iOS and Android are developed together, with Android used as the primary PC emulator preview target when a Mac is not available.
 
-This project targets Expo SDK 54 for Expo Go compatibility on physical iPhones.
+This project targets Expo SDK 54 for Expo Go compatibility on physical iPhones and Android emulator/device previews.
 
 ## Run the app
 
@@ -19,16 +19,23 @@ This project targets Expo SDK 54 for Expo Go compatibility on physical iPhones.
    ```
 
    Then fill in `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `EXPO_PUBLIC_MATCH_FLOW_API_URL`.
+   The create-league flow uses Supabase email OTP, so configure Auth email delivery and make sure the Magic Link email template includes the `{{ .Token }}` variable for the code users enter in the app.
 
-3. Start iOS:
+3. Start the app:
 
    ```sh
    npm run dev:lan
    ```
 
    On a physical iPhone, install Expo Go from the App Store and scan the QR code shown in the terminal.
+   On this PC, start an Android emulator and run:
 
-   For live API calls from Expo Go, run the backend with `--host 0.0.0.0` and set `EXPO_PUBLIC_MATCH_FLOW_API_URL` to your computer's LAN IP, for example `http://192.168.4.21:8000`. Use `http://127.0.0.1:8000` only for simulator or desktop preview.
+   ```sh
+   npm run android
+   ```
+
+   For live API calls from Expo Go on a physical phone, run the backend with `--host 0.0.0.0` and set `EXPO_PUBLIC_MATCH_FLOW_API_URL` to your computer's LAN IP, for example `http://192.168.4.21:8000`. Use `EXPO_PUBLIC_ANDROID_EMULATOR_MATCH_FLOW_API_URL=http://10.0.2.2:8000` for the Android emulator on this PC. Use `http://127.0.0.1:8000` only for iOS simulator or desktop preview.
+   If an Android build still shows an old `EXPO_PUBLIC_MATCH_FLOW_API_URL` after editing `.env`, stop Expo and restart with `npm run android:emulator`.
 
    If your phone cannot connect over LAN, use:
 
@@ -36,12 +43,14 @@ This project targets Expo SDK 54 for Expo Go compatibility on physical iPhones.
    npm run dev:tunnel
    ```
 
-   `npm run ios` is only for macOS machines with Xcode installed because it opens the iOS Simulator.
+   `npm run ios` is only for macOS machines with Xcode installed because it opens the iOS Simulator. `npm run android` is the normal PC emulator preview path.
 
    If Expo Go says the project is incompatible, close the Expo dev server, run `npm install`, then restart with `npm run dev:clear`. The app should report SDK 54 in Expo CLI output.
 
 ## App scope
 
+- iOS remains the product and visual priority; Android is developed in parallel and should stay functional, readable, and close to the iOS-first design.
+- Android screenshots are valid QA input for layout, permissions, keyboard behavior, camera scanning, image picking, and media saving.
 - Home follows the supplied QR/search wireframe.
 - Play follows the supplied recommended match/current players wireframe.
 - Profile supports signed-in user display names, profile pictures, and sign out.
@@ -63,6 +72,7 @@ Auth behavior:
 
 - If Supabase env vars are missing, the app stays in local demo mode.
 - If Supabase env vars are present, the app still opens on Home; live organization actions require a signed-in Supabase session.
+- Guest queue entry uses Supabase anonymous sign-ins so players can join without entering email. Enable Anonymous sign-ins in Supabase Auth before testing join queue.
 - Profile image upload helpers live in `src/lib/profileImages.ts`.
 
 Core Supabase RPC flow:
@@ -118,11 +128,13 @@ Live Play screen bridge:
 - Ending a play session closes it, removes it from Home resume options, and requires active matches to be completed first.
 - The camera QR scanner resolves LittlePickle league QR values and opens the join queue.
 
-The first Supabase migration lives at:
+The Supabase migrations live at:
 
 ```sh
-supabase/migrations/202606200001_match_flow.sql
+supabase/migrations/
 ```
+
+Apply every migration in timestamp order when setting up a live project.
 
 The FastAPI service lives in:
 
@@ -147,6 +159,9 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 CORS_ALLOWED_ORIGINS=*
+SMTP2GO_API_KEY=your-smtp2go-api-key
+EMAIL_FROM=support@joinlittlepickle.com
+EMAIL_SENDER_NAME=LittlePickle
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USERNAME=your-smtp-username
@@ -156,7 +171,7 @@ SMTP_USE_TLS=true
 ```
 
 Never put the service role key in the Expo app.
-SMTP settings are used to send newly created league QR codes to league admins.
+`SMTP2GO_API_KEY` is used to send newly created league QR codes to league admins. The `SMTP_*` settings are an optional fallback if you prefer direct SMTP.
 
 Backend verification:
 

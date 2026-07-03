@@ -10,6 +10,9 @@
     "dev:tunnel": "expo start --tunnel",
     "dev:tunnel:clear": "expo start --tunnel --clear",
     "start": "expo start",
+    "android": "expo start --android",
+    "android:clear": "expo start --android --clear",
+    "android:emulator": "set EXPO_PUBLIC_ANDROID_EMULATOR_MATCH_FLOW_API_URL=http://10.0.2.2:8000&& expo start --android --clear",
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit"
   },
@@ -22,10 +25,10 @@
     "expo-image-picker": "~17.0.11",
     "expo-media-library": "~18.2.1",
     "react": "19.1.0",
-    "react-native": "0.81.1",
+    "react-native": "0.81.5",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-safe-area-context": "~5.6.2",
-    "react-native-svg": "15.15.3",
+    "react-native-svg": "15.12.1",
     "react-native-url-polyfill": "^3.0.0"
   },
   "devDependencies": {

@@ -693,7 +693,7 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
 
   function renderHome() {
     return (
-      <>
+      <View style={styles.homeContent}>
         <Text accessibilityRole="header" style={styles.brand}>
           LittlePickle
         </Text>
@@ -717,12 +717,24 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
           {renderSearchResults()}
           {renderLocalGuestLeagues()}
           {renderYourLeagues()}
-          <View style={styles.createLeagueCta}>
-            <Text style={styles.createLeaguePrompt}>Looking to start a league?</Text>
-            <ActionButton disabled={loading} label="Create league" onPress={beginCreateLeague} />
-          </View>
         </View>
-      </>
+        <View style={styles.createLeagueCta}>
+          <Text style={styles.createLeaguePrompt}>Looking to start a league? </Text>
+          <Pressable
+            accessibilityLabel="Create league"
+            accessibilityRole="button"
+            disabled={loading}
+            onPress={beginCreateLeague}
+            style={({ pressed }) => [
+              styles.createLeagueLinkTarget,
+              pressed ? styles.rowPressed : null,
+              loading ? styles.createLeagueLinkDisabled : null
+            ]}
+          >
+            <Text style={styles.createLeagueLink}>Create league</Text>
+          </Pressable>
+        </View>
+      </View>
     );
   }
 
@@ -1062,6 +1074,8 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
   return (
     <>
       <ScrollView
+        alwaysBounceVertical={false}
+        bounces={false}
         contentContainerStyle={[
           styles.content,
           {
@@ -1070,6 +1084,8 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
           }
         ]}
         keyboardShouldPersistTaps="handled"
+        overScrollMode="never"
+        scrollEnabled={false}
       >
         {createStep === "home" ? renderHome() : renderCreateFlow()}
       </ScrollView>
@@ -1251,15 +1267,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: theme.layout.inlineDefault,
-    justifyContent: "space-between",
-    marginTop: theme.layout.sectionGap
+    justifyContent: "center",
+    marginTop: "auto",
+    paddingTop: theme.layout.sectionGap
   },
   createLeaguePrompt: {
     ...theme.type.bodyDefault,
     color: theme.color.text.primary,
-    flex: 1,
-    minWidth: 180
+    textAlign: "center"
+  },
+  createLeagueLink: {
+    ...theme.type.labelAction,
+    color: theme.color.action.primary,
+    fontWeight: "700",
+    textDecorationLine: "underline"
+  },
+  createLeagueLinkDisabled: {
+    opacity: 0.6
+  },
+  createLeagueLinkTarget: {
+    alignItems: "center",
+    borderRadius: theme.radius.control,
+    justifyContent: "center",
+    minHeight: theme.size.targetMinimum,
+    minWidth: theme.size.targetMinimum,
+    paddingHorizontal: 0,
+    paddingVertical: theme.space[8]
   },
   emptyText: {
     ...theme.type.bodySecondary,
@@ -1283,14 +1316,23 @@ const styles = StyleSheet.create({
     ...theme.type.bodySecondary,
     color: theme.color.text.secondary
   },
+  homeContent: {
+    flex: 1
+  },
   input: {
     ...theme.type.bodyDefault,
     borderColor: theme.color.border.control,
     borderRadius: theme.radius.control,
     borderWidth: theme.border.interactive,
     color: theme.color.text.primary,
+    height: theme.size.controlMinimumHeight,
+    includeFontPadding: false,
+    lineHeight: theme.space[20],
     minHeight: theme.size.controlMinimumHeight,
-    paddingHorizontal: theme.space[16]
+    paddingBottom: theme.space[2],
+    paddingHorizontal: theme.space[16],
+    paddingTop: 0,
+    textAlignVertical: "center"
   },
   joinDialog: {
     backgroundColor: theme.color.surface.card,
@@ -1437,9 +1479,15 @@ const styles = StyleSheet.create({
     borderWidth: theme.border.interactive,
     color: theme.color.text.primary,
     flex: 1,
+    height: theme.size.targetMinimum,
+    includeFontPadding: false,
+    lineHeight: theme.space[20],
     minHeight: theme.size.targetMinimum,
     minWidth: 0,
-    paddingHorizontal: theme.space[12]
+    paddingBottom: theme.space[2],
+    paddingHorizontal: theme.space[12],
+    paddingTop: 0,
+    textAlignVertical: "center"
   },
   startText: {
     ...theme.type.labelAction,

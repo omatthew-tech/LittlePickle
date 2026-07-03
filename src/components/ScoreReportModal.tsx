@@ -108,8 +108,14 @@ const styles = StyleSheet.create({
     borderWidth: theme.border.interactive,
     color: theme.color.text.primary,
     flex: 1,
+    height: 72,
+    includeFontPadding: false,
+    lineHeight: theme.type.metricScore.fontSize,
     minHeight: 72,
-    textAlign: "center"
+    paddingBottom: theme.space[2],
+    paddingTop: 0,
+    textAlign: "center",
+    textAlignVertical: "center"
   },
   scoreRow: {
     alignItems: "center",

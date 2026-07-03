@@ -18,6 +18,9 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 CORS_ALLOWED_ORIGINS=*
+SMTP2GO_API_KEY=your-smtp2go-api-key
+EMAIL_FROM=support@joinlittlepickle.com
+EMAIL_SENDER_NAME=LittlePickle
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USERNAME=your-smtp-username
@@ -27,7 +30,7 @@ SMTP_USE_TLS=true
 ```
 
 The service role key must only live on the server. Do not put it in the Expo app.
-SMTP settings are required for league QR code email delivery.
+`SMTP2GO_API_KEY` is required for league QR code email delivery. The `SMTP_*` settings are an optional fallback if you prefer direct SMTP.
 
 ## Run locally
 
@@ -98,6 +101,9 @@ SUPABASE_URL
 SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 CORS_ALLOWED_ORIGINS
+SMTP2GO_API_KEY
+EMAIL_FROM
+EMAIL_SENDER_NAME
 SMTP_HOST
 SMTP_PORT
 SMTP_USERNAME
@@ -132,7 +138,7 @@ SMTP_USE_TLS
 
 ## Supabase command flow
 
-Apply `supabase/migrations/202606200001_match_flow.sql`, then call API commands with the signed-in user's Supabase access token:
+Apply every file in `supabase/migrations/` in timestamp order, then call API commands with the signed-in user's Supabase access token:
 
 ```http
 Authorization: Bearer <supabase-access-token>

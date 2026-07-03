@@ -12,15 +12,18 @@ Create or open a Supabase project and collect:
 
 Keep the service role key server-only. Never put it in Expo env vars.
 
+Configure Auth before testing live app flows:
+
+- Enable Anonymous sign-ins. LittlePickle uses `signInAnonymously()` for guest queue entry so players can join without entering email.
+- Configure Auth email delivery before testing league creation. LittlePickle asks admins to enter an email code, so the Supabase Magic Link email template must include `{{ .Token }}` and your SMTP sender/domain must be verified with the email provider.
+
 ## 2. Database and storage
 
-Apply:
+Apply every file in `supabase/migrations/` in timestamp order. These migrations create the organization, player, session, queue, recommendation, match, score, pass-event, profile, profile-picture storage, and league-join schema.
 
 ```sh
-supabase/migrations/202606200001_match_flow.sql
+supabase/migrations/
 ```
-
-This creates the organization, player, session, queue, recommendation, match, score, pass-event, profile, and profile-picture storage schema.
 
 ## 3. Backend
 
@@ -31,6 +34,9 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-or-publishable-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 CORS_ALLOWED_ORIGINS=*
+SMTP2GO_API_KEY=your-smtp2go-api-key
+EMAIL_FROM=support@joinlittlepickle.com
+EMAIL_SENDER_NAME=LittlePickle
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USERNAME=your-smtp-username
@@ -84,9 +90,18 @@ Create `.env`:
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-anon-or-publishable-key
 EXPO_PUBLIC_MATCH_FLOW_API_URL=http://your-computer-lan-ip:8000
+EXPO_PUBLIC_ANDROID_EMULATOR_MATCH_FLOW_API_URL=http://10.0.2.2:8000
 ```
 
-On this machine right now, the Wi-Fi LAN IP is `192.168.4.21`, so the local Expo Go value is `http://192.168.4.21:8000`. Use `http://127.0.0.1:8000` only for simulator or desktop preview.
+On this machine right now, the Wi-Fi LAN IP is `192.168.4.21`, so the local Expo Go value is `http://192.168.4.21:8000`. Use `http://10.0.2.2:8000` for the Android emulator on this PC. Use `http://127.0.0.1:8000` only for iOS simulator or desktop preview.
+
+Expo reads `EXPO_PUBLIC_*` values when the dev server starts. If the Android emulator still shows an old backend URL after editing `.env`, stop Expo and restart with:
+
+```sh
+npm run android:emulator
+```
+
+LittlePickle is developed iOS-first, but Android is now an active parallel target. Android emulator screenshots are expected and should be used to catch layout, permission, keyboard, camera, image-picker, and media-library issues while preserving the iOS-first visual direction.
 
 `EXPO_PUBLIC_DEFAULT_SESSION_ID` is optional and should only be used for local debugging with a known session ID. Normal users should start or resume sessions from Home.
 
@@ -94,16 +109,17 @@ On this machine right now, the Wi-Fi LAN IP is `192.168.4.21`, so the local Expo
 
 1. Start the backend.
 2. Start Expo with `npm run dev:lan`.
-3. Open the app and confirm Home is the first screen.
-4. With a signed-in Supabase session available, create an organization and set the court count.
-5. Add enough players to the roster.
-6. Start a play session from Home.
-7. Confirm Play shows `number_of_courts + 1` recommendations.
-8. Start the best recommendation.
-9. If more courts are open, confirm new recommendations are available for the next court.
-10. If every court is active, confirm recommendation start buttons show `Courts full`.
-11. Report a score.
-12. Confirm the queue advances and new recommendations appear.
+3. For PC emulator preview, start the Android emulator and run `npm run android`.
+4. Open the app and confirm Home is the first screen.
+5. With a signed-in Supabase session available, create an organization and set the court count.
+6. Add enough players to the roster.
+7. Start a play session from Home.
+8. Confirm Play shows `number_of_courts + 1` recommendations.
+9. Start the best recommendation.
+10. If more courts are open, confirm new recommendations are available for the next court.
+11. If every court is active, confirm recommendation start buttons show `Courts full`.
+12. Report a score.
+13. Confirm the queue advances and new recommendations appear.
 
 ## 6. Deployment
 

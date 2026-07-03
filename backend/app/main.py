@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
         return {
             "ok": True,
             "supabase_configured": settings.supabase_configured,
+            "email_configured": settings.email_configured,
             "algorithm_version": settings.algorithm_version,
         }
 

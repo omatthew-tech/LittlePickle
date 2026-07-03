@@ -18,6 +18,13 @@ class Settings(BaseSettings):
         alias="SUPABASE_SERVICE_ROLE_KEY",
     )
     cors_allowed_origins: str = Field(default="*", alias="CORS_ALLOWED_ORIGINS")
+    email_from: str = Field(default="support@joinlittlepickle.com", alias="EMAIL_FROM")
+    email_sender_name: str = Field(default="LittlePickle", alias="EMAIL_SENDER_NAME")
+    smtp2go_api_key: str | None = Field(default=None, alias="SMTP2GO_API_KEY")
+    smtp2go_api_url: str = Field(
+        default="https://api.smtp2go.com/v3/email/send",
+        alias="SMTP2GO_API_URL",
+    )
     smtp_host: str | None = Field(default=None, alias="SMTP_HOST")
     smtp_port: int = Field(default=587, alias="SMTP_PORT")
     smtp_username: str | None = Field(default=None, alias="SMTP_USERNAME")
@@ -47,7 +54,19 @@ class Settings(BaseSettings):
 
     @property
     def smtp_configured(self) -> bool:
-        return bool(self.smtp_host and self.smtp_sender)
+        return bool(self.smtp_host and self.sender_email)
+
+    @property
+    def smtp2go_configured(self) -> bool:
+        return bool(self.smtp2go_api_key and self.sender_email)
+
+    @property
+    def email_configured(self) -> bool:
+        return self.smtp2go_configured or self.smtp_configured
+
+    @property
+    def sender_email(self) -> str:
+        return (self.smtp_sender or self.email_from).strip()
 
 
 @lru_cache

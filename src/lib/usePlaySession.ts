@@ -14,6 +14,7 @@ import {
   acceptRecommendation,
   completeMatch,
   isMatchFlowApiConfigured,
+  matchFlowApiConfigKey,
   passPlayer,
   regenerateSessionRecommendations
 } from "./matchFlowApi";
@@ -95,17 +96,18 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
       setCourtCount(sessionData.courtCount);
       setCompletedMatches(sessionData.completed.matches);
       setPlayers(sessionData.playerOptions.length > 0 ? sessionData.playerOptions.map(playerFromOption) : sessionData.snapshot.players.map(playerFromSnapshot));
+      setErrorMessage(sessionData.warningMessage);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not load play session.");
-      setRecommendations(sampleRecommendations);
+      setRecommendations([]);
       setActiveMatches([]);
       setCourtCount(null);
       setCompletedMatches([]);
-      setPlayers(samplePlayers);
+      setPlayers([]);
     } finally {
       setLoading(false);
     }
-  }, [liveEnabled, needsLiveSession, resolvedSessionId]);
+  }, [liveEnabled, needsLiveSession, resolvedSessionId, matchFlowApiConfigKey]);
 
   const passRecommendedPlayer = useCallback(
     async (recommendationId: string, playerId: string) => {
@@ -261,6 +263,7 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
   }, [liveEnabled, resolvedSessionId]);
 
   useEffect(() => {
+    setErrorMessage(null);
     void refresh();
   }, [refresh]);
 
@@ -327,6 +330,7 @@ type LoadedSessionData = {
   playerOptions: SessionPlayerOption[];
   recommendationResponse: RecommendationResponse;
   snapshot: RecommendationSnapshot;
+  warningMessage: string | null;
 };
 
 async function loadSessionData(sessionId: string): Promise<LoadedSessionData> {
@@ -348,18 +352,34 @@ async function loadSessionData(sessionId: string): Promise<LoadedSessionData> {
       matches,
       playerOptions,
       recommendationResponse: activeRecommendations,
-      snapshot
+      snapshot,
+      warningMessage: null
     };
   }
 
-  return {
-    completed,
-    courtCount,
-    matches,
-    playerOptions,
-    recommendationResponse: await regenerateSessionRecommendations(sessionId),
-    snapshot
-  };
+  try {
+    const regeneratedRecommendations = await regenerateSessionRecommendations(sessionId);
+
+    return {
+      completed,
+      courtCount,
+      matches,
+      playerOptions,
+      recommendationResponse: regeneratedRecommendations,
+      snapshot,
+      warningMessage: null
+    };
+  } catch (error) {
+    return {
+      completed,
+      courtCount,
+      matches,
+      playerOptions,
+      recommendationResponse: activeRecommendations,
+      snapshot,
+      warningMessage: error instanceof Error ? error.message : "Could not refresh recommended matches."
+    };
+  }
 }
 
 function playerFromSnapshot(player: PlayerSnapshot): Player {
