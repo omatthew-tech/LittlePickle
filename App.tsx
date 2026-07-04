@@ -7,6 +7,7 @@ import { AuthProvider } from "./src/lib/auth";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { PlayScreen } from "./src/screens/PlayScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
+import type { QueueStatusProfile } from "./src/screens/QueueStatusScreen";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
 function AppShell() {
   const [activeDestination, setActiveDestination] = useState<Destination>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(process.env.EXPO_PUBLIC_DEFAULT_SESSION_ID ?? null);
+  const [activeQueueProfile, setActiveQueueProfile] = useState<QueueStatusProfile | null>(null);
 
   return (
     <SafeAreaProvider>
@@ -26,9 +28,10 @@ function AppShell() {
         <StatusBar backgroundColor={theme.color.surface.canvas} barStyle="dark-content" />
         {activeDestination === "home" ? (
           <HomeScreen
+            activeQueueProfile={activeQueueProfile}
+            onQueueProfileChanged={setActiveQueueProfile}
             onSessionSelected={(sessionId) => {
               setActiveSessionId(sessionId);
-              setActiveDestination("play");
             }}
           />
         ) : null}
@@ -36,6 +39,7 @@ function AppShell() {
           <PlayScreen
             onSessionClosed={() => {
               setActiveSessionId(null);
+              setActiveQueueProfile(null);
               setActiveDestination("home");
             }}
             sessionId={activeSessionId}

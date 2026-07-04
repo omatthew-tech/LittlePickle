@@ -47,8 +47,11 @@ import {
   type LocalGuestLeagueProfile
 } from "../lib/localGuestProfile";
 import { isMatchFlowApiConfigured, sendLeagueQrEmail } from "../lib/matchFlowApi";
+import { QueueStatusScreen, type QueueStatusProfile } from "./QueueStatusScreen";
 
 type HomeScreenProps = {
+  activeQueueProfile: QueueStatusProfile | null;
+  onQueueProfileChanged: (profile: QueueStatusProfile | null) => void;
   onSessionSelected: (sessionId: string) => void;
 };
 
@@ -83,7 +86,7 @@ const initialDraft: LeagueDraft = {
   otpSent: false
 };
 
-export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
+export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessionSelected }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const {
     configured,
@@ -355,17 +358,19 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
         playerId
       });
 
-      await saveLocalGuestLeagueProfile({
+      const savedProfile = await saveLocalGuestLeagueProfile({
         avatarPath: joined.player.profile_image_path,
         displayName: joined.player.display_name,
         leagueId: joined.organization.id,
         leagueName: joined.organization.name,
         playerId: joined.player.id,
+        rating: joined.player.rating,
         sessionId: joined.session_id
       });
       setJoinLeague(null);
       setJoinName("");
       setSelectedPlayerId(null);
+      onQueueProfileChanged(savedProfile);
       await loadHomeData();
       onSessionSelected(joined.session_id);
     } catch (error) {
@@ -1068,6 +1073,18 @@ export function HomeScreen({ onSessionSelected }: HomeScreenProps) {
           }}
         />
       </View>
+    );
+  }
+
+  if (activeQueueProfile) {
+    return (
+      <QueueStatusScreen
+        onLeftQueue={() => {
+          onQueueProfileChanged(null);
+          void loadHomeData();
+        }}
+        profile={activeQueueProfile}
+      />
     );
   }
 

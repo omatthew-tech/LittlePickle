@@ -8,6 +8,7 @@ export type LocalGuestLeagueProfile = {
   leagueId: string;
   leagueName: string;
   playerId: string;
+  rating?: number | null;
   sessionId: string;
   updatedAt: string;
 };

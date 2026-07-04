@@ -47,7 +47,7 @@ type PlaySessionState = {
   players: Player[];
   recommendations: MatchRecommendation[];
   refresh: () => Promise<void>;
-  setPlayerInSession: (playerId: string, inSession: boolean) => Promise<void>;
+  setPlayerInSession: (playerId: string, inSession: boolean) => Promise<boolean>;
   startRecommendedMatch: (recommendationId: string) => Promise<void>;
   passRecommendedPlayer: (recommendationId: string, playerId: string) => Promise<void>;
 };
@@ -150,7 +150,7 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
             player.id === playerId ? { ...player, inSession } : player
           )
         );
-        return;
+        return true;
       }
 
       setErrorMessage(null);
@@ -169,8 +169,10 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
           setPlayers,
           setRecommendations
         });
+        return true;
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Could not update player queue.");
+        return false;
       }
     },
     [liveEnabled, resolvedSessionId]
@@ -435,10 +437,13 @@ async function loadSessionData(sessionId: string): Promise<LoadedSessionData> {
 function playerFromSnapshot(player: PlayerSnapshot): Player {
   return {
     avatarUrl: player.profile_image_path ? publicProfileImageUrl(player.profile_image_path) : null,
+    gamesPlayed: player.games_played,
     id: player.id,
     inSession: true,
     initials: initialsFor(player.name),
     name: player.name,
+    queuePosition: player.queue_position,
+    roundsWaiting: player.rounds_waiting,
     skill: player.skill
   };
 }
@@ -446,11 +451,14 @@ function playerFromSnapshot(player: PlayerSnapshot): Player {
 function playerFromOption(player: SessionPlayerOption): Player {
   return {
     avatarUrl: player.profile_image_path ? publicProfileImageUrl(player.profile_image_path) : null,
+    gamesPlayed: player.games_played,
     id: player.id,
     inSession: player.in_session,
     initials: initialsFor(player.name),
     isPlaying: player.is_playing,
     name: player.name,
+    queuePosition: player.queue_position,
+    roundsWaiting: player.rounds_waiting,
     skill: player.skill
   };
 }

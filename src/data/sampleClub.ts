@@ -7,6 +7,9 @@ export type Player = {
   name: string;
   initials: string;
   isPlaying?: boolean;
+  gamesPlayed?: number;
+  queuePosition?: number | null;
+  roundsWaiting?: number;
   skill?: number;
 };
 
