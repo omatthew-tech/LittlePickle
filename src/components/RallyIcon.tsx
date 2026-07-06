@@ -2,6 +2,7 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 export type RallyIconName =
   | "add-player"
+  | "back"
   | "check"
   | "error"
   | "history"
@@ -46,6 +47,8 @@ function renderIcon(name: RallyIconName, color: string) {
           <Path d="M2.8 18.5c.5-3.7 2.4-5.4 5.7-5.4 2.1 0 3.7.7 4.7 2.2M18 8.5v7M14.5 12h7" />
         </>
       );
+    case "back":
+      return <Path d="M15 5 8 12l7 7" />;
     case "check":
       return <Path d="m4.5 12.5 4.2 4.2L19.5 6.5" />;
     case "error":

@@ -5,9 +5,9 @@ import { BottomNavigation } from "./src/components/BottomNavigation";
 import { type Destination, theme } from "./src/design/theme";
 import { AuthProvider } from "./src/lib/auth";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import type { LeagueQueueProfile } from "./src/screens/LeagueQueueScreen";
 import { PlayScreen } from "./src/screens/PlayScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
-import type { QueueStatusProfile } from "./src/screens/QueueStatusScreen";
 
 export default function App() {
   return (
@@ -20,7 +20,7 @@ export default function App() {
 function AppShell() {
   const [activeDestination, setActiveDestination] = useState<Destination>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(process.env.EXPO_PUBLIC_DEFAULT_SESSION_ID ?? null);
-  const [activeQueueProfile, setActiveQueueProfile] = useState<QueueStatusProfile | null>(null);
+  const [activeQueueProfile, setActiveQueueProfile] = useState<LeagueQueueProfile | null>(null);
 
   return (
     <SafeAreaProvider>

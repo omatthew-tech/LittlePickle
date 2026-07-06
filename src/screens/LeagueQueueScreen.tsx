@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CurrentPlayersSection } from "../components/CurrentPlayersSection";
+import { RallyIcon } from "../components/RallyIcon";
 import { theme } from "../design/theme";
 import { usePlaySession } from "../lib/usePlaySession";
 import type { Player } from "../data/sampleClub";
@@ -9,7 +10,7 @@ import type { Player } from "../data/sampleClub";
 const playersPerMatch = 4;
 const estimatedMinutesPerMatch = 8;
 
-export type QueueStatusProfile = {
+export type LeagueQueueProfile = {
   avatarPath?: string | null;
   displayName: string;
   leagueName: string;
@@ -18,12 +19,14 @@ export type QueueStatusProfile = {
   sessionId: string;
 };
 
-type QueueStatusScreenProps = {
+type LeagueQueueScreenProps = {
+  onBack: () => void;
   onLeftQueue: () => void;
-  profile: QueueStatusProfile;
+  onQueueMembershipChanged: () => void;
+  profile: LeagueQueueProfile;
 };
 
-export function QueueStatusScreen({ onLeftQueue, profile }: QueueStatusScreenProps) {
+export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChanged, profile }: LeagueQueueScreenProps) {
   const insets = useSafeAreaInsets();
   const {
     activeMatches,
@@ -34,24 +37,35 @@ export function QueueStatusScreen({ onLeftQueue, profile }: QueueStatusScreenPro
     players,
     setPlayerInSession
   } = usePlaySession(profile.sessionId);
-  const [leaving, setLeaving] = useState(false);
+  const [updatingMembership, setUpdatingMembership] = useState(false);
   const queuedPlayer = useMemo(
     () => players.find((player) => player.id === profile.playerId) ?? null,
     [players, profile.playerId]
   );
   const displayName = queuedPlayer?.name ?? profile.displayName;
+  const isQueued = Boolean(queuedPlayer?.inSession);
   const rank = formatRank(queuedPlayer?.skill ?? profile.rating ?? null);
-  const wait = loading && !queuedPlayer ? "--" : queueWaitLabel(queuedPlayer, activeMatches.length);
-  const upAfter = loading && !queuedPlayer ? "--" : upAfterLabel(queuedPlayer, activeMatches.length);
+  const wait = loading && !queuedPlayer ? "--" : isQueued ? queueWaitLabel(queuedPlayer, activeMatches.length) : "--";
+  const upAfter = loading && !queuedPlayer ? "--" : isQueued ? upAfterLabel(queuedPlayer, activeMatches.length) : "--";
+  const membershipActionLabel = isQueued ? "Leave queue" : "Join queue";
 
-  async function handleLeaveQueue() {
-    setLeaving(true);
-    const removed = await setPlayerInSession(profile.playerId, false);
-    setLeaving(false);
+  async function handleQueueMembership() {
+    const nextInSession = !isQueued;
 
-    if (removed) {
-      onLeftQueue();
+    setUpdatingMembership(true);
+    const updated = await setPlayerInSession(profile.playerId, nextInSession);
+    setUpdatingMembership(false);
+
+    if (!updated) {
+      return;
     }
+
+    if (nextInSession) {
+      onQueueMembershipChanged();
+      return;
+    }
+
+    onLeftQueue();
   }
 
   return (
@@ -65,9 +79,21 @@ export function QueueStatusScreen({ onLeftQueue, profile }: QueueStatusScreenPro
       ]}
       keyboardShouldPersistTaps="handled"
     >
-      <Text accessibilityRole="header" style={styles.leagueTitle}>
-        {profile.leagueName}
-      </Text>
+      <View style={styles.headerStack}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={theme.space[8]}
+          onPress={onBack}
+          style={({ pressed }) => [styles.backButton, pressed ? styles.backButtonPressed : null]}
+        >
+          <RallyIcon color={theme.color.action.primary} name="back" size={theme.size.iconCompact} />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Text accessibilityRole="header" style={styles.leagueTitle}>
+          {profile.leagueName}
+        </Text>
+      </View>
       <View style={styles.queueCard}>
         <View style={styles.queueIdentityRow}>
           <View style={styles.queueAvatar}>
@@ -80,15 +106,15 @@ export function QueueStatusScreen({ onLeftQueue, profile }: QueueStatusScreenPro
           </Text>
           <Pressable
             accessibilityRole="button"
-            disabled={leaving || loading}
-            onPress={() => void handleLeaveQueue()}
+            disabled={updatingMembership || loading}
+            onPress={() => void handleQueueMembership()}
             style={({ pressed }) => [
-              styles.leaveAction,
-              pressed ? styles.leaveActionPressed : null,
-              leaving || loading ? styles.leaveActionDisabled : null
+              styles.queueAction,
+              pressed ? styles.queueActionPressed : null,
+              updatingMembership || loading ? styles.queueActionDisabled : null
             ]}
           >
-            <Text style={styles.leaveText}>Leave queue</Text>
+            <Text style={styles.queueActionText}>{membershipActionLabel}</Text>
           </Pressable>
         </View>
         <View style={styles.queueDivider} />
@@ -184,15 +210,37 @@ const styles = StyleSheet.create({
     gap: theme.layout.sectionGap,
     paddingHorizontal: theme.layout.screenInset
   },
+  backButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: theme.radius.control,
+    flexDirection: "row",
+    gap: theme.space[4],
+    minHeight: theme.size.targetMinimum,
+    paddingHorizontal: theme.space[4]
+  },
+  backButtonPressed: {
+    backgroundColor: theme.color.surface.info
+  },
+  backText: {
+    ...theme.type.labelAction,
+    color: theme.color.action.primary
+  },
   errorText: {
     ...theme.type.bodySecondary,
     color: theme.color.feedback.error
+  },
+  headerStack: {
+    gap: theme.space[8]
   },
   leagueTitle: {
     ...theme.type.headingBrand,
     color: theme.color.text.primary
   },
-  leaveAction: {
+  loading: {
+    marginTop: -theme.layout.stackDefault
+  },
+  queueAction: {
     alignItems: "center",
     borderRadius: theme.radius.control,
     justifyContent: "center",
@@ -200,18 +248,15 @@ const styles = StyleSheet.create({
     minHeight: theme.size.targetMinimum,
     paddingHorizontal: theme.space[8]
   },
-  leaveActionDisabled: {
+  queueActionDisabled: {
     opacity: 0.6
   },
-  leaveActionPressed: {
+  queueActionPressed: {
     backgroundColor: theme.color.surface.card
   },
-  leaveText: {
+  queueActionText: {
     ...theme.type.labelAction,
     color: theme.color.action.primary
-  },
-  loading: {
-    marginTop: -theme.layout.stackDefault
   },
   queueAvatar: {
     alignItems: "center",

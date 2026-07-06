@@ -25,9 +25,11 @@ import { leagueQrValue, parseLeagueQrValue } from "../lib/leagueCodes";
 import {
   createLeague,
   createPlayer,
+  ensureCurrentUserPlayer,
   getLeagueByCode,
   getMyOrganizations,
   getMyProfile,
+  getOrCreateOpenPlaySession,
   getOrganizationOpenSessions,
   getOrganizationPlayersForAdmin,
   joinLeagueQueue,
@@ -40,6 +42,7 @@ import {
   type OrganizationSearchResult,
   type OrganizationSummary
 } from "../lib/littlePickleData";
+import { LeagueQueueScreen, type LeagueQueueProfile } from "./LeagueQueueScreen";
 import {
   getLocalGuestLeagueProfile,
   getLocalGuestLeagueProfiles,
@@ -47,11 +50,10 @@ import {
   type LocalGuestLeagueProfile
 } from "../lib/localGuestProfile";
 import { isMatchFlowApiConfigured, sendLeagueQrEmail } from "../lib/matchFlowApi";
-import { QueueStatusScreen, type QueueStatusProfile } from "./QueueStatusScreen";
 
 type HomeScreenProps = {
-  activeQueueProfile: QueueStatusProfile | null;
-  onQueueProfileChanged: (profile: QueueStatusProfile | null) => void;
+  activeQueueProfile: LeagueQueueProfile | null;
+  onQueueProfileChanged: (profile: LeagueQueueProfile | null) => void;
   onSessionSelected: (sessionId: string) => void;
 };
 
@@ -432,15 +434,111 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
     const profile = await getLocalGuestLeagueProfile(organization.id);
 
     if (profile) {
-      await joinQueue({
-        displayName: profile.displayName,
-        league: leagueFromOrganization(organization),
-        playerId: profile.playerId
-      });
+      await openQueueForProfile(profile, organization);
+      return;
+    }
+
+    if (session) {
+      await openQueueForCurrentUser(organization);
       return;
     }
 
     await startJoinForLeague(leagueFromOrganization(organization));
+  }
+
+  async function openQueueForCurrentUser(organization: OrganizationSummary) {
+    if (!configured) {
+      setErrorMessage("Live league queue needs Supabase settings.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const [profile, playerId] = await Promise.all([
+        getMyProfile(),
+        ensureCurrentUserPlayer(organization.id)
+      ]);
+      const sessionId = await resolveOpenQueueSession(organization.id, organization.number_of_courts);
+      const savedProfile = await saveLocalGuestLeagueProfile({
+        avatarPath: profile.avatar_path,
+        displayName: profile.display_name.trim() || "Player",
+        leagueId: organization.id,
+        leagueName: organization.name,
+        playerId,
+        rating: null,
+        sessionId
+      });
+
+      onQueueProfileChanged(savedProfile);
+      onSessionSelected(sessionId);
+      await loadHomeData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not enter the league queue.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openQueueForProfile(profile: LocalGuestLeagueProfile, organization?: OrganizationSummary) {
+    if (!configured) {
+      setErrorMessage("Live league queue needs Supabase settings.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage(null);
+    setJoinError(null);
+
+    try {
+      if (!session) {
+        await ensureAnonymousSession();
+      }
+
+      const sessionId = await resolveOpenQueueSession(profile.leagueId, organization?.number_of_courts);
+      const savedProfile = await saveLocalGuestLeagueProfile({
+        avatarPath: profile.avatarPath ?? null,
+        displayName: profile.displayName,
+        leagueId: profile.leagueId,
+        leagueName: organization?.name ?? profile.leagueName,
+        playerId: profile.playerId,
+        rating: profile.rating ?? null,
+        sessionId
+      });
+
+      setJoinLeague(null);
+      setJoinName("");
+      setSelectedPlayerId(null);
+      onQueueProfileChanged(savedProfile);
+      onSessionSelected(sessionId);
+      await loadHomeData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not enter the league queue.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resolveOpenQueueSession(organizationId: string, courtCount?: number) {
+    const cachedOpenSessionId = organizationOpenSessions[organizationId]?.[0]?.id;
+
+    if (cachedOpenSessionId) {
+      return cachedOpenSessionId;
+    }
+
+    const openSessions = await getOrganizationOpenSessions(organizationId);
+
+    setOrganizationOpenSessions((previousSessions) => ({
+      ...previousSessions,
+      [organizationId]: openSessions
+    }));
+
+    if (openSessions[0]) {
+      return openSessions[0].id;
+    }
+
+    return getOrCreateOpenPlaySession(organizationId, courtCount);
   }
 
   function beginCreateLeague() {
@@ -704,7 +802,11 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
         </Text>
         <View style={styles.entryStack}>
           <QRAction disabled={loading} label="Scan league QR" onPress={() => void beginScanner()} />
-          <Text style={styles.or}>or</Text>
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.orSeparator}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>or</Text>
+            <View style={styles.orLine} />
+          </View>
           <SearchField
             label="Search for a league"
             onChangeText={setLeagueQuery}
@@ -790,15 +892,7 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
             accessibilityLabel={`Enter ${profile.leagueName} as ${profile.displayName}`}
             accessibilityRole="button"
             key={profile.leagueId}
-            onPress={() =>
-              void startJoinForLeague({
-                id: profile.leagueId,
-                location_text: null,
-                name: profile.leagueName,
-                number_of_courts: 1,
-                slug: profile.leagueId
-              })
-            }
+            onPress={() => void openQueueForProfile(profile)}
             style={({ pressed }) => [styles.leagueRow, pressed ? styles.rowPressed : null]}
           >
             <View style={styles.leagueText}>
@@ -818,25 +912,21 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
     }
 
     return (
-      <View style={styles.list}>
-        <Text style={styles.sectionLabel}>Your leagues</Text>
+      <View style={[styles.list, styles.yourLeaguesSection]}>
+        <Text style={styles.sectionTitle}>Your leagues</Text>
         {visibleOrganizations.map((organization) => {
           const openSessions = organizationOpenSessions[organization.id] ?? [];
-          const latestSession = openSessions[0] ?? null;
           const isExpanded = expandedRosterLeagueId === organization.id;
           const players = organizationPlayers[organization.id] ?? [];
           const playerDraft = playerDrafts[organization.id] ?? { displayName: "", rating: "3.0" };
+          const activePlayers = activePlayersText(openSessions[0]?.active_player_count ?? 0);
 
           return (
             <View key={organization.id} style={styles.leagueCard}>
               <View style={styles.leagueSummaryRow}>
                 <View style={styles.leagueText}>
                   <Text style={styles.leagueName}>{organization.name}</Text>
-                  <Text style={styles.leagueMeta}>
-                    {organization.number_of_courts} courts
-                    {organization.location_text ? ` | ${organization.location_text}` : ""}
-                    {latestSession ? ` | ${sessionSummary(latestSession)}` : ""}
-                  </Text>
+                  <Text style={styles.leagueMeta}>{activePlayers}</Text>
                 </View>
                 <View style={styles.rowActions}>
                   {organization.role === "admin" ? (
@@ -849,7 +939,7 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
                   ) : null}
                   <ActionButton
                     disabled={loading}
-                    label="Enter queue"
+                    label="View"
                     onPress={() => void enterLeague(organization)}
                     variant="text"
                   />
@@ -1078,9 +1168,16 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
 
   if (activeQueueProfile) {
     return (
-      <QueueStatusScreen
+      <LeagueQueueScreen
+        onBack={() => {
+          onQueueProfileChanged(null);
+          void loadHomeData();
+        }}
         onLeftQueue={() => {
           onQueueProfileChanged(null);
+          void loadHomeData();
+        }}
+        onQueueMembershipChanged={() => {
           void loadHomeData();
         }}
         profile={activeQueueProfile}
@@ -1097,7 +1194,7 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
           styles.content,
           {
             paddingBottom: theme.size.navigationBottomHeight + insets.bottom + theme.layout.sectionGap,
-            paddingTop: insets.top + theme.space[20]
+            paddingTop: insets.top + (createStep === "home" ? theme.space[32] : theme.space[20])
           }
         ]}
         keyboardShouldPersistTaps="handled"
@@ -1215,11 +1312,9 @@ function slugify(value: string) {
     .replace(/^-|-$/g, "");
 }
 
-function sessionSummary(session: OrganizationOpenSessionSummary) {
-  const playerLabel = session.active_player_count === 1 ? "player" : "players";
-  const matchLabel = session.active_match_count === 1 ? "match" : "matches";
-
-  return `${session.active_player_count} ${playerLabel}, ${session.active_match_count} ${matchLabel}`;
+function activePlayersText(activePlayerCount: number) {
+  const playerLabel = activePlayerCount === 1 ? "player" : "players";
+  return `${activePlayerCount} ${playerLabel} active`;
 }
 
 function initialsFor(name: string) {
@@ -1286,6 +1381,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     marginTop: "auto",
+    paddingBottom: theme.space[12],
     paddingTop: theme.layout.sectionGap
   },
   createLeaguePrompt: {
@@ -1400,6 +1496,9 @@ const styles = StyleSheet.create({
   list: {
     gap: theme.layout.stackCompact
   },
+  yourLeaguesSection: {
+    marginTop: theme.space[16]
+  },
   matchList: {
     gap: theme.layout.stackCompact
   },
@@ -1426,8 +1525,18 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surface.social,
     borderColor: theme.color.border.active
   },
-  or: {
-    ...theme.type.bodySecondary,
+  orLine: {
+    backgroundColor: theme.color.border.subtle,
+    flex: 1,
+    height: theme.border.quiet
+  },
+  orSeparator: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.layout.inlineDefault
+  },
+  orText: {
+    ...theme.type.bodyDefault,
     color: theme.color.text.secondary,
     textAlign: "center"
   },

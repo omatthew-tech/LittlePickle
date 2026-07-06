@@ -218,9 +218,9 @@ const styles = StyleSheet.create({
   field: {
     alignItems: "center",
     backgroundColor: theme.color.surface.card,
-    borderColor: theme.color.border.control,
+    borderColor: theme.color.border.subtle,
     borderRadius: theme.radius.control,
-    borderWidth: theme.border.interactive,
+    borderWidth: theme.border.quiet,
     flexDirection: "row",
     gap: theme.layout.iconLabelGap,
     minHeight: theme.size.controlMinimumHeight,

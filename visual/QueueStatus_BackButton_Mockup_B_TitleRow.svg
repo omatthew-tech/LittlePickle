@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="980" viewBox="0 0 450 980">
+  <defs>
+    <filter id="phoneShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#22283A" flood-opacity="0.22"/>
+    </filter>
+    <style>
+      .ui { font-family: Cabin, "Segoe UI", Arial, sans-serif; letter-spacing: 0; }
+      .mono { font-family: "Go Mono", Consolas, monospace; letter-spacing: 0; }
+      .label { fill: #686D7A; font-size: 13px; }
+      .title { fill: #22283A; font-size: 28px; font-weight: 700; }
+      .section { fill: #22283A; font-size: 20px; font-weight: 600; }
+      .body { fill: #22283A; font-size: 16px; }
+      .secondary { fill: #686D7A; font-size: 14px; }
+      .action { fill: #4B63C6; font-size: 16px; font-weight: 600; }
+      .metric { fill: #22283A; font-size: 24px; font-weight: 700; }
+      .nav { fill: #686D7A; font-size: 12px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect width="450" height="980" fill="#ECE8DE"/>
+  <text x="26" y="34" class="ui" fill="#22283A" font-size="18" font-weight="700">Option B: Icon in title row</text>
+  <text x="26" y="58" class="ui label">Compact and visible, but title wraps tighter.</text>
+
+  <rect x="34" y="72" width="382" height="878" rx="52" fill="#111318" filter="url(#phoneShadow)"/>
+  <rect x="47" y="86" width="356" height="850" rx="42" fill="#F6F2E8"/>
+  <circle cx="225" cy="112" r="13" fill="#111318"/>
+  <circle cx="225" cy="112" r="5" fill="#1E2A36"/>
+
+  <text x="75" y="119" class="ui" fill="#22283A" font-size="13" font-weight="700">2:51</text>
+  <rect x="343" y="110" width="20" height="10" rx="3" fill="#111318"/>
+  <rect x="365" y="110" width="9" height="10" rx="2" fill="#111318"/>
+  <path d="M326 119c4-6 11-6 15 0" stroke="#111318" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <g class="ui">
+    <circle cx="94" cy="168" r="22" fill="#FFFDF8" stroke="#D8D5CD"/>
+    <path d="M101 156 89 168l12 12" stroke="#4B63C6" stroke-width="2.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <text x="126" y="150" class="title">Glennville</text>
+    <text x="126" y="184" class="title">Pickleball</text>
+    <text x="126" y="218" class="title">Association</text>
+
+    <rect x="74" y="260" width="302" height="160" rx="16" fill="#FFFDF8" stroke="#CBDDA4" stroke-width="1.4"/>
+    <circle cx="116" cy="303" r="24" fill="#CBDDA4"/>
+    <text x="116" y="310" text-anchor="middle" fill="#22283A" font-size="16">KT</text>
+    <text x="150" y="308" class="body">Kenny Tarver</text>
+    <text x="329" y="308" text-anchor="middle" class="action" font-size="15">Leave queue</text>
+    <line x1="96" y1="344" x2="356" y2="344" stroke="#D8D5CD" stroke-width="1"/>
+    <text x="128" y="372" text-anchor="middle" class="secondary">Up after</text>
+    <text x="128" y="404" text-anchor="middle" class="mono metric">1 match</text>
+    <line x1="188" y1="358" x2="188" y2="404" stroke="#D8D5CD" stroke-width="1"/>
+    <text x="225" y="372" text-anchor="middle" class="secondary">Rank</text>
+    <text x="225" y="404" text-anchor="middle" class="mono metric">3.00</text>
+    <line x1="277" y1="358" x2="277" y2="404" stroke="#D8D5CD" stroke-width="1"/>
+    <text x="322" y="372" text-anchor="middle" class="secondary">Wait</text>
+    <text x="322" y="404" text-anchor="middle" class="mono metric">8 min</text>
+
+    <text x="74" y="472" class="section">Current players</text>
+    <rect x="74" y="496" width="302" height="52" rx="14" fill="#FFFDF8" stroke="#D8D5CD"/>
+    <circle cx="98" cy="522" r="6" fill="none" stroke="#686D7A" stroke-width="2"/>
+    <path d="M103 527l7 7" stroke="#686D7A" stroke-width="2" stroke-linecap="round"/>
+    <text x="121" y="528" class="secondary" font-size="16">Add player</text>
+
+    <g transform="translate(74 564)">
+      <rect width="302" height="64" rx="12" fill="#CBDDA4"/>
+      <circle cx="30" cy="32" r="18" fill="#E8ECFA"/>
+      <text x="30" y="38" text-anchor="middle" fill="#4B63C6" font-size="14">AF</text>
+      <text x="62" y="27" class="body">Amanda Finch</text>
+      <text x="62" y="50" class="secondary">3.00</text>
+      <path d="M212 33l7 7 14-16" stroke="#4B63C6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="265" y="38" text-anchor="middle" class="action">Remove</text>
+    </g>
+    <g transform="translate(74 640)">
+      <rect width="302" height="64" rx="12" fill="#CBDDA4"/>
+      <circle cx="30" cy="32" r="18" fill="#E8ECFA"/>
+      <text x="30" y="38" text-anchor="middle" fill="#4B63C6" font-size="14">PE</text>
+      <text x="62" y="27" class="body">Player E</text>
+      <text x="62" y="50" class="secondary">3.00</text>
+      <path d="M212 33l7 7 14-16" stroke="#4B63C6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="265" y="38" text-anchor="middle" class="action">Remove</text>
+    </g>
+    <g transform="translate(74 716)">
+      <rect width="302" height="64" rx="12" fill="#CBDDA4"/>
+      <circle cx="30" cy="32" r="18" fill="#E8ECFA"/>
+      <text x="30" y="38" text-anchor="middle" fill="#4B63C6" font-size="14">RS</text>
+      <text x="62" y="27" class="body">Robin Stewart</text>
+      <text x="62" y="50" class="secondary">3.00</text>
+      <path d="M212 33l7 7 14-16" stroke="#4B63C6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="265" y="38" text-anchor="middle" class="action">Remove</text>
+    </g>
+  </g>
+
+  <rect x="47" y="852" width="356" height="84" fill="#FFFDF8" stroke="#D8D5CD"/>
+  <g class="ui" text-anchor="middle">
+    <rect x="132" y="862" width="52" height="54" rx="16" fill="none" stroke="#4B63C6" stroke-width="1.6"/>
+    <path d="M149 887v-14l9-8 9 8v14h-6v-9h-6v9z" fill="none" stroke="#4B63C6" stroke-width="2" stroke-linejoin="round"/>
+    <text x="158" y="908" class="nav" fill="#4B63C6">Home</text>
+    <path d="M225 873h7v7h-7zM234 879h7v7h-7z" fill="none" stroke="#686D7A" stroke-width="2"/>
+    <text x="232" y="908" class="nav">Play</text>
+    <circle cx="307" cy="876" r="7" fill="none" stroke="#686D7A" stroke-width="2"/>
+    <path d="M295 892c3-8 21-8 24 0" fill="none" stroke="#686D7A" stroke-width="2" stroke-linecap="round"/>
+    <text x="307" y="908" class="nav">Profile</text>
+  </g>
+  <rect x="176" y="918" width="98" height="4" rx="2" fill="#111318" opacity="0.75"/>
+</svg>

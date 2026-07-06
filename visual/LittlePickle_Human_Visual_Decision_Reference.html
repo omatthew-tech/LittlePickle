@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LittlePickle Human Visual Decision Reference</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --blue-100: #e8ecfa;
+        --blue-500: #4b63c6;
+        --blue-700: #3d50a8;
+        --green-300: #cbdda4;
+        --paper-50: #f6f2e8;
+        --paper-0: #fffdf8;
+        --ink-900: #22283a;
+        --gray-600: #686d7a;
+        --gray-400: #7f8592;
+        --gray-150: #d8d5cd;
+        --berry-500: #be3e68;
+
+        --font-interface: "Cabin", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-metric: "Go Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+        --shadow-card: 0 4px 12px rgba(34, 40, 58, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--paper-50);
+        color: var(--ink-900);
+        font-family: var(--font-interface);
+        font-size: 16px;
+        line-height: 24px;
+      }
+
+      body {
+        margin: 0;
+        padding: 40px;
+      }
+
+      .page {
+        display: grid;
+        gap: 28px;
+        margin: 0 auto;
+        max-width: 1280px;
+      }
+
+      .banner,
+      .panel,
+      .component-frame,
+      .phone {
+        background: var(--paper-0);
+        border: 1px solid var(--gray-150);
+        border-radius: 18px;
+      }
+
+      .banner {
+        display: grid;
+        gap: 8px;
+        padding: 24px;
+      }
+
+      .eyebrow {
+        color: var(--blue-500);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        line-height: 16px;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        line-height: 40px;
+      }
+
+      h2 {
+        font-size: 20px;
+        font-weight: 600;
+        line-height: 24px;
+      }
+
+      .subtle {
+        color: var(--gray-600);
+      }
+
+      .notice {
+        background: var(--blue-100);
+        border: 1px solid rgba(75, 99, 198, 0.28);
+        border-radius: 14px;
+        color: var(--blue-700);
+        font-size: 14px;
+        line-height: 20px;
+        padding: 12px 16px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 20px;
+      }
+
+      .grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .panel {
+        display: grid;
+        gap: 20px;
+        padding: 20px;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .panel-note {
+        color: var(--gray-600);
+        font-size: 14px;
+        line-height: 20px;
+      }
+
+      .token-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+
+      .swatch {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .swatch-fill {
+        border: 1px solid rgba(34, 40, 58, 0.12);
+        border-radius: 14px;
+        height: 56px;
+      }
+
+      .token-name {
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 16px;
+      }
+
+      .token-value {
+        color: var(--gray-600);
+        font-family: var(--font-metric);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .type-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .type-row {
+        display: grid;
+        align-items: center;
+        gap: 16px;
+        grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1fr) minmax(220px, 0.8fr);
+        padding: 12px 0;
+      }
+
+      .type-row + .type-row {
+        border-top: 1px solid var(--gray-150);
+      }
+
+      .spec {
+        color: var(--gray-600);
+        font-family: var(--font-metric);
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      .brand-type {
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        line-height: 40px;
+      }
+
+      .page-type {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        line-height: 36px;
+      }
+
+      .section-type {
+        font-size: 20px;
+        font-weight: 600;
+        line-height: 24px;
+      }
+
+      .card-title-type {
+        font-size: 17px;
+        font-weight: 600;
+        line-height: 24px;
+      }
+
+      .body-type {
+        font-size: 16px;
+        font-weight: 400;
+        line-height: 24px;
+      }
+
+      .secondary-type {
+        color: var(--gray-600);
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 20px;
+      }
+
+      .action-label-type {
+        color: var(--blue-500);
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 20px;
+      }
+
+      .nav-label-type {
+        color: var(--gray-600);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        line-height: 16px;
+      }
+
+      .score-type {
+        color: var(--blue-500);
+        font-family: var(--font-metric);
+        font-size: 36px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 40px;
+      }
+
+      .record-type {
+        color: var(--blue-500);
+        font-family: var(--font-metric);
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 28px;
+      }
+
+      .metric-detail-type {
+        color: var(--gray-600);
+        font-family: var(--font-metric);
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 20px;
+      }
+
+      .spacing-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .space-row {
+        display: grid;
+        align-items: center;
+        gap: 12px;
+        grid-template-columns: 64px 1fr 64px;
+      }
+
+      .space-bar-track {
+        align-items: center;
+        background: rgba(216, 213, 205, 0.32);
+        border-radius: 999px;
+        display: flex;
+        height: 18px;
+        padding: 2px;
+      }
+
+      .space-bar {
+        background: var(--blue-500);
+        border-radius: 999px;
+        height: 14px;
+        min-width: 1px;
+      }
+
+      .semantic-spacing {
+        display: grid;
+        gap: 12px;
+      }
+
+      .demo-stage {
+        background: var(--paper-50);
+        border: 1px dashed var(--gray-150);
+        border-radius: 14px;
+        padding: 20px;
+      }
+
+      .stack-demo {
+        display: grid;
+        gap: 12px;
+      }
+
+      .compact-demo {
+        display: grid;
+        gap: 6px;
+      }
+
+      .demo-block {
+        background: var(--paper-0);
+        border: 1px solid var(--gray-150);
+        border-radius: 8px;
+        color: var(--gray-600);
+        font-size: 12px;
+        line-height: 16px;
+        padding: 8px 10px;
+      }
+
+      .size-row {
+        display: grid;
+        align-items: center;
+        gap: 16px;
+        grid-template-columns: minmax(160px, 0.8fr) minmax(180px, 1fr) minmax(160px, 0.7fr);
+      }
+
+      .size-box {
+        align-items: center;
+        background: var(--blue-100);
+        border: 1px solid rgba(75, 99, 198, 0.24);
+        border-radius: 14px;
+        color: var(--blue-700);
+        display: flex;
+        font-family: var(--font-metric);
+        font-size: 12px;
+        justify-content: center;
+      }
+
+      .radius-stage {
+        align-items: end;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+
+      .radius-sample {
+        align-items: center;
+        background: var(--paper-0);
+        border: 1px solid var(--gray-150);
+        color: var(--gray-600);
+        display: flex;
+        font-size: 12px;
+        height: 76px;
+        justify-content: center;
+        padding: 12px;
+        width: 160px;
+      }
+
+      .border-stage {
+        display: grid;
+        gap: 12px;
+      }
+
+      .border-sample {
+        background: var(--paper-0);
+        border-radius: 14px;
+        padding: 16px;
+      }
+
+      .shadow-sample {
+        background: var(--paper-0);
+        border: 1px solid var(--gray-150);
+        border-radius: 18px;
+        box-shadow: var(--shadow-card);
+        padding: 16px;
+      }
+
+      .icon-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      }
+
+      .icon-card {
+        align-items: center;
+        background: var(--paper-50);
+        border: 1px solid var(--gray-150);
+        border-radius: 14px;
+        display: grid;
+        gap: 8px;
+        justify-items: center;
+        padding: 16px 10px;
+      }
+
+      .icon-mask {
+        background: var(--blue-500);
+        display: inline-block;
+        height: 24px;
+        mask-position: center;
+        mask-repeat: no-repeat;
+        mask-size: contain;
+        width: 24px;
+        -webkit-mask-position: center;
+        -webkit-mask-repeat: no-repeat;
+        -webkit-mask-size: contain;
+      }
+
+      .component-frame {
+        display: grid;
+        gap: 16px;
+        padding: 16px;
+      }
+
+      .qr-action {
+        align-items: center;
+        background: var(--paper-0);
+        border: 1.5px solid var(--gray-400);
+        border-radius: 14px;
+        display: grid;
+        gap: 6px;
+        justify-items: center;
+        min-height: 160px;
+        padding: 20px;
+        width: 100%;
+      }
+
+      .search-field {
+        align-items: center;
+        background: var(--paper-0);
+        border: 1.5px solid var(--gray-400);
+        border-radius: 14px;
+        color: var(--gray-600);
+        display: flex;
+        gap: 6px;
+        min-height: 52px;
+        padding: 0 16px;
+      }
+
+      .button-row {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .primary-button,
+      .text-button {
+        align-items: center;
+        border-radius: 14px;
+        display: flex;
+        font-size: 16px;
+        font-weight: 600;
+        justify-content: center;
+        min-height: 52px;
+        padding: 12px 16px;
+      }
+
+      .primary-button {
+        background: var(--blue-500);
+        color: var(--paper-0);
+      }
+
+      .text-button {
+        background: transparent;
+        border: 1.5px solid var(--blue-500);
+        color: var(--blue-500);
+      }
+
+      .match-card {
+        background: var(--paper-0);
+        border: 1px solid var(--gray-150);
+        border-radius: 18px;
+        box-shadow: var(--shadow-card);
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      .player-row {
+        align-items: center;
+        border-bottom: 1px solid var(--gray-150);
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 36px 1fr auto;
+        min-height: 64px;
+      }
+
+      .avatar {
+        align-items: center;
+        background: var(--green-300);
+        border-radius: 999px;
+        color: var(--blue-700);
+        display: flex;
+        font-size: 12px;
+        font-weight: 700;
+        height: 36px;
+        justify-content: center;
+        width: 36px;
+      }
+
+      .selected-row {
+        background: var(--green-300);
+        border-bottom-color: transparent;
+        border-radius: 14px;
+        padding: 0 12px;
+      }
+
+      .nav-sample {
+        align-items: center;
+        background: var(--paper-0);
+        border: 1px solid var(--gray-150);
+        border-radius: 14px;
+        display: grid;
+        gap: 6px;
+        grid-template-columns: repeat(3, 1fr);
+        min-height: 72px;
+        padding: 8px 20px;
+      }
+
+      .nav-item {
+        align-items: center;
+        border: 1.5px solid transparent;
+        border-radius: 14px;
+        color: var(--gray-600);
+        display: grid;
+        font-size: 12px;
+        font-weight: 600;
+        gap: 2px;
+        justify-items: center;
+        line-height: 16px;
+        min-height: 48px;
+        padding: 4px;
+      }
+
+      .nav-item.active {
+        border-color: var(--blue-500);
+        color: var(--blue-500);
+      }
+
+      .phone {
+        border-color: var(--ink-900);
+        border-width: 8px;
+        display: grid;
+        gap: 28px;
+        min-height: 640px;
+        padding: 40px 20px 20px;
+      }
+
+      .phone-content {
+        display: grid;
+        gap: 28px;
+      }
+
+      .or-row {
+        align-items: center;
+        color: var(--gray-600);
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 1fr auto 1fr;
+      }
+
+      .or-row::before,
+      .or-row::after {
+        background: var(--gray-150);
+        content: "";
+        height: 1px;
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding: 20px;
+        }
+
+        .grid.two,
+        .grid.three {
+          grid-template-columns: 1fr;
+        }
+
+        .type-row,
+        .size-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="banner">
+        <div class="eyebrow">LittlePickle human-only visual decision aid</div>
+        <h1>Exact visual values at a glance</h1>
+        <p class="subtle">
+          Generated as a private reference for making visual decisions. Do not use this file as an implementation source
+          of truth, agent instruction, product requirement, or canonical design-system document.
+        </p>
+        <p class="notice">
+          Canonical implementation values still live in LittlePickle_Design_System.md, tokens/littlepickle.tokens.json,
+          contracts/littlepickle.components.json, and src/design/theme.ts. This file is intentionally not listed in the
+          manifest.
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Color Palette</h2>
+          <p class="panel-note">Raw palette and common semantic intent.</p>
+        </div>
+        <div class="token-grid">
+          <div class="swatch"><div class="swatch-fill" style="background: #4b63c6"></div><div><div class="token-name">Club Royal</div><div class="token-value">#4B63C6 - primary action</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #3d50a8"></div><div><div class="token-name">Match Point</div><div class="token-value">#3D50A8 - pressed, selected</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #e8ecfa"></div><div><div class="token-name">Blue Chalk</div><div class="token-value">#E8ECFA - info surface</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #cbdda4"></div><div><div class="token-name">Pickle Leaf</div><div class="token-value">#CBDDA4 - social surface</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #f6f2e8"></div><div><div class="token-name">Court Paper</div><div class="token-value">#F6F2E8 - canvas</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #fffdf8"></div><div><div class="token-name">Club Card</div><div class="token-value">#FFFDF8 - cards, fields</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #22283a"></div><div><div class="token-name">Scoreboard Ink</div><div class="token-value">#22283A - primary text</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #686d7a"></div><div><div class="token-name">Net Cord</div><div class="token-value">#686D7A - secondary text</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #7f8592"></div><div><div class="token-name">Court Edge</div><div class="token-value">#7F8592 - control borders</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #d8d5cd"></div><div><div class="token-name">Shoe Dust</div><div class="token-value">#D8D5CD - subtle borders</div></div></div>
+          <div class="swatch"><div class="swatch-fill" style="background: #be3e68"></div><div><div class="token-name">Rally Berry</div><div class="token-value">#BE3E68 - errors only</div></div></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Typography Scale</h2>
+          <p class="panel-note">Each sample is rendered at the tokenized size, weight, line height, and tracking.</p>
+        </div>
+        <div class="type-list">
+          <div class="type-row"><div><div class="token-name">type.heading.brand</div><div class="spec">Cabin 700 - 32/40 - -0.01em</div></div><div class="brand-type">LittlePickle</div><div class="spec">Brand heading</div></div>
+          <div class="type-row"><div><div class="token-name">type.heading.page</div><div class="spec">Cabin 700 - 28/36 - -0.01em</div></div><div class="page-type">Recommended matches</div><div class="spec">Page title</div></div>
+          <div class="type-row"><div><div class="token-name">type.heading.section</div><div class="spec">Cabin 600 - 20/24 - 0em</div></div><div class="section-type">Current players</div><div class="spec">Section title and QR label</div></div>
+          <div class="type-row"><div><div class="token-name">type.title.card</div><div class="spec">Cabin 600 - 17/24 - 0em</div></div><div class="card-title-type">Maya Chen</div><div class="spec">Card title, player name</div></div>
+          <div class="type-row"><div><div class="token-name">type.body.default</div><div class="spec">Cabin 400 - 16/24 - 0em</div></div><div class="body-type">Search for a league</div><div class="spec">Inputs and main copy</div></div>
+          <div class="type-row"><div><div class="token-name">type.body.secondary</div><div class="spec">Cabin 400 - 14/20 - 0em</div></div><div class="secondary-type">2 courts | 30427 | 7 players</div><div class="spec">Metadata and helper text</div></div>
+          <div class="type-row"><div><div class="token-name">type.label.action</div><div class="spec">Cabin 600 - 16/20 - 0em</div></div><div class="action-label-type">Create league</div><div class="spec">Buttons and text actions</div></div>
+          <div class="type-row"><div><div class="token-name">type.label.navigation</div><div class="spec">Cabin 600 - 12/16 - +0.01em</div></div><div class="nav-label-type">Home</div><div class="spec">Bottom navigation labels</div></div>
+          <div class="type-row"><div><div class="token-name">type.metric.score</div><div class="spec">Go Mono 700 - 36/40 - -0.02em</div></div><div class="score-type">11-8</div><div class="spec">Match score</div></div>
+          <div class="type-row"><div><div class="token-name">type.metric.record</div><div class="spec">Go Mono 700 - 24/28 - -0.02em</div></div><div class="record-type">4-1</div><div class="spec">Win-loss record</div></div>
+          <div class="type-row"><div><div class="token-name">type.metric.detail</div><div class="spec">Go Mono 400 - 14/20 - 0em</div></div><div class="metric-detail-type">SAT 10:30</div><div class="spec">Time, court, compact stats</div></div>
+        </div>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Spacing Scale</h2>
+            <p class="panel-note">Actual pixel widths.</p>
+          </div>
+          <div class="spacing-list">
+            <div class="space-row"><div class="token-name">0</div><div class="space-bar-track"><div class="space-bar" style="width: 0"></div></div><div class="token-value">0px</div></div>
+            <div class="space-row"><div class="token-name">2</div><div class="space-bar-track"><div class="space-bar" style="width: 2px"></div></div><div class="token-value">2px</div></div>
+            <div class="space-row"><div class="token-name">4</div><div class="space-bar-track"><div class="space-bar" style="width: 4px"></div></div><div class="token-value">4px</div></div>
+            <div class="space-row"><div class="token-name">6</div><div class="space-bar-track"><div class="space-bar" style="width: 6px"></div></div><div class="token-value">6px</div></div>
+            <div class="space-row"><div class="token-name">8</div><div class="space-bar-track"><div class="space-bar" style="width: 8px"></div></div><div class="token-value">8px</div></div>
+            <div class="space-row"><div class="token-name">12</div><div class="space-bar-track"><div class="space-bar" style="width: 12px"></div></div><div class="token-value">12px</div></div>
+            <div class="space-row"><div class="token-name">16</div><div class="space-bar-track"><div class="space-bar" style="width: 16px"></div></div><div class="token-value">16px</div></div>
+            <div class="space-row"><div class="token-name">20</div><div class="space-bar-track"><div class="space-bar" style="width: 20px"></div></div><div class="token-value">20px</div></div>
+            <div class="space-row"><div class="token-name">24</div><div class="space-bar-track"><div class="space-bar" style="width: 24px"></div></div><div class="token-value">24px</div></div>
+            <div class="space-row"><div class="token-name">28</div><div class="space-bar-track"><div class="space-bar" style="width: 28px"></div></div><div class="token-value">28px</div></div>
+            <div class="space-row"><div class="token-name">32</div><div class="space-bar-track"><div class="space-bar" style="width: 32px"></div></div><div class="token-value">32px</div></div>
+            <div class="space-row"><div class="token-name">40</div><div class="space-bar-track"><div class="space-bar" style="width: 40px"></div></div><div class="token-value">40px</div></div>
+            <div class="space-row"><div class="token-name">48</div><div class="space-bar-track"><div class="space-bar" style="width: 48px"></div></div><div class="token-value">48px</div></div>
+            <div class="space-row"><div class="token-name">64</div><div class="space-bar-track"><div class="space-bar" style="width: 64px"></div></div><div class="token-value">64px</div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Semantic Spacing</h2>
+            <p class="panel-note">Named layout distances.</p>
+          </div>
+          <div class="semantic-spacing">
+            <div class="demo-stage" style="padding: 20px">
+              <div class="demo-block">screen inset - 20</div>
+            </div>
+            <div class="demo-stage">
+              <div class="stack-demo">
+                <div class="demo-block">stack item</div>
+                <div class="demo-block">12 default stack gap</div>
+              </div>
+            </div>
+            <div class="demo-stage">
+              <div class="compact-demo">
+                <div class="demo-block">compact item</div>
+                <div class="demo-block">6 compact gap</div>
+              </div>
+            </div>
+            <div class="demo-stage">
+              <div class="demo-block" style="margin-bottom: 28px">section one</div>
+              <div class="demo-block">28 section gap</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Dimensions</h2>
+            <p class="panel-note">Tokenized minimums and fixed visual sizes.</p>
+          </div>
+          <div class="grid">
+            <div class="size-row"><div><div class="token-name">target.minimum</div><div class="token-value">48px</div></div><div class="size-box" style="height: 48px; width: 48px">48</div><div class="spec">Minimum tap target</div></div>
+            <div class="size-row"><div><div class="token-name">control.minimum-height</div><div class="token-value">52px</div></div><div class="size-box" style="height: 52px; width: 180px">52 high</div><div class="spec">Buttons and search fields</div></div>
+            <div class="size-row"><div><div class="token-name">player-row.minimum-height</div><div class="token-value">64px</div></div><div class="size-box" style="height: 64px; width: 180px">64 high</div><div class="spec">Player rows</div></div>
+            <div class="size-row"><div><div class="token-name">qr-action.minimum-height</div><div class="token-value">160px</div></div><div class="size-box" style="height: 160px; width: 180px">160 high</div><div class="spec">Home QR action</div></div>
+            <div class="size-row"><div><div class="token-name">navigation.bottom-height</div><div class="token-value">72px</div></div><div class="size-box" style="height: 72px; width: 180px">72 high</div><div class="spec">Bottom navigation, before safe area</div></div>
+            <div class="size-row"><div><div class="token-name">avatar.default</div><div class="token-value">36px</div></div><div class="size-box" style="border-radius: 999px; height: 36px; width: 36px">36</div><div class="spec">Avatar or monogram</div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Radius, Border, Shadow</h2>
+            <p class="panel-note">Soft Baseline values.</p>
+          </div>
+          <div class="radius-stage">
+            <div class="radius-sample" style="border-radius: 14px">14 control radius</div>
+            <div class="radius-sample" style="border-radius: 18px">18 card radius</div>
+            <div class="radius-sample" style="border-radius: 999px; height: 56px">999 pill radius</div>
+          </div>
+          <div class="border-stage">
+            <div class="border-sample" style="border: 1px solid var(--gray-150)">1 quiet border - Shoe Dust</div>
+            <div class="border-sample" style="border: 1.5px solid var(--gray-400)">1.5 interactive border - Court Edge</div>
+            <div class="border-sample" style="border: 2px solid var(--blue-500)">2 focus ring - Club Royal</div>
+            <div class="shadow-sample">card shadow - 0 4 12 rgba(34,40,58,0.10)</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Iconography</h2>
+          <p class="panel-note">20 compact, 24 default, 28 primary; stroke 2.25 with rounded caps and joins.</p>
+        </div>
+        <div class="grid two">
+          <div class="component-frame">
+            <h3 class="section-type">Icon sizes</h3>
+            <div class="icon-grid">
+              <div class="icon-card"><span class="icon-mask" style="height: 20px; width: 20px; -webkit-mask-image: url('../icons/search.svg'); mask-image: url('../icons/search.svg')"></span><div class="token-value">20 compact</div></div>
+              <div class="icon-card"><span class="icon-mask" style="height: 24px; width: 24px; -webkit-mask-image: url('../icons/home.svg'); mask-image: url('../icons/home.svg')"></span><div class="token-value">24 default</div></div>
+              <div class="icon-card"><span class="icon-mask" style="height: 28px; width: 28px; -webkit-mask-image: url('../icons/scan.svg'); mask-image: url('../icons/scan.svg')"></span><div class="token-value">28 primary</div></div>
+            </div>
+          </div>
+          <div class="component-frame">
+            <h3 class="section-type">Stable icons</h3>
+            <div class="icon-grid">
+              <div class="icon-card"><span class="icon-mask" style="-webkit-mask-image: url('../icons/home.svg'); mask-image: url('../icons/home.svg')"></span><div class="token-name">Home</div></div>
+              <div class="icon-card"><span class="icon-mask" style="-webkit-mask-image: url('../icons/play.svg'); mask-image: url('../icons/play.svg')"></span><div class="token-name">Play</div></div>
+              <div class="icon-card"><span class="icon-mask" style="-webkit-mask-image: url('../icons/profile.svg'); mask-image: url('../icons/profile.svg')"></span><div class="token-name">Profile</div></div>
+              <div class="icon-card"><span class="icon-mask" style="-webkit-mask-image: url('../icons/search.svg'); mask-image: url('../icons/search.svg')"></span><div class="token-name">Search</div></div>
+              <div class="icon-card"><span class="icon-mask" style="-webkit-mask-image: url('../icons/history.svg'); mask-image: url('../icons/history.svg')"></span><div class="token-name">History</div></div>
+              <div class="icon-card"><span class="icon-mask" style="-webkit-mask-image: url('../icons/error.svg'); mask-image: url('../icons/error.svg')"></span><div class="token-name">Error</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Core Component Proportions</h2>
+          <p class="panel-note">Real token sizes for the six-component v1 system.</p>
+        </div>
+        <div class="grid two">
+          <div class="component-frame">
+            <h3 class="section-type">Home building blocks</h3>
+            <div class="qr-action">
+              <span class="icon-mask" style="height: 28px; width: 28px; -webkit-mask-image: url('../icons/scan.svg'); mask-image: url('../icons/scan.svg')"></span>
+              <div class="section-type" style="color: var(--blue-500)">Scan league QR</div>
+              <div class="spec">min-height 160 - padding 20 - radius 14</div>
+            </div>
+            <div class="or-row"><span>or</span></div>
+            <div class="search-field">
+              <span class="icon-mask" style="background: var(--gray-600); height: 20px; width: 20px; -webkit-mask-image: url('../icons/search.svg'); mask-image: url('../icons/search.svg')"></span>
+              <span>Search for a league</span>
+            </div>
+            <div class="button-row">
+              <div class="primary-button">Primary action</div>
+              <div class="text-button">Text action</div>
+            </div>
+            <div class="nav-sample">
+              <div class="nav-item active"><span class="icon-mask" style="-webkit-mask-image: url('../icons/home.svg'); mask-image: url('../icons/home.svg')"></span><span>Home</span></div>
+              <div class="nav-item"><span class="icon-mask" style="background: var(--gray-600); -webkit-mask-image: url('../icons/play.svg'); mask-image: url('../icons/play.svg')"></span><span>Play</span></div>
+              <div class="nav-item"><span class="icon-mask" style="background: var(--gray-600); -webkit-mask-image: url('../icons/profile.svg'); mask-image: url('../icons/profile.svg')"></span><span>Profile</span></div>
+            </div>
+          </div>
+
+          <div class="component-frame">
+            <h3 class="section-type">Play building blocks</h3>
+            <div class="match-card">
+              <div class="leagueSummaryRow" style="display: flex; justify-content: space-between">
+                <div class="card-title-type">Recommended match</div>
+                <div class="metric-detail-type">SAT 10:30</div>
+              </div>
+              <div class="player-row">
+                <div class="avatar">M</div>
+                <div>
+                  <div class="token-name">Maya + Jules</div>
+                  <div class="secondary-type">Ready for Saturday</div>
+                </div>
+                <div class="action-label-type">Pass</div>
+              </div>
+              <div class="player-row">
+                <div class="avatar">N</div>
+                <div>
+                  <div class="token-name">Noah + Sam</div>
+                  <div class="secondary-type">Balanced matchup</div>
+                </div>
+                <div class="action-label-type">Pass</div>
+              </div>
+              <div class="primary-button">Report score</div>
+            </div>
+            <div class="search-field">
+              <span class="icon-mask" style="background: var(--gray-600); height: 20px; width: 20px; -webkit-mask-image: url('../icons/search.svg'); mask-image: url('../icons/search.svg')"></span>
+              <span>Search players</span>
+            </div>
+            <div class="player-row selected-row">
+              <div class="avatar" style="background: var(--blue-100)">M</div>
+              <div>
+                <div class="card-title-type">Maya Chen</div>
+                <div class="secondary-type">Selected for match</div>
+              </div>
+              <div class="size-box" style="height: 48px; width: 48px">48</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Screen Pattern Scale</h2>
+          <p class="panel-note">Home spacing sequence: 20 inset, 28 section gap, 12 stack gaps, flexible open space.</p>
+        </div>
+        <div class="grid two">
+          <div class="phone">
+            <div class="phone-content">
+              <div class="brand-type">LittlePickle</div>
+              <div class="qr-action">
+                <span class="icon-mask" style="height: 28px; width: 28px; -webkit-mask-image: url('../icons/scan.svg'); mask-image: url('../icons/scan.svg')"></span>
+                <div class="section-type" style="color: var(--blue-500)">Scan league QR</div>
+              </div>
+              <div class="or-row"><span>or</span></div>
+              <div class="search-field">
+                <span class="icon-mask" style="background: var(--gray-600); height: 20px; width: 20px; -webkit-mask-image: url('../icons/search.svg'); mask-image: url('../icons/search.svg')"></span>
+                <span>Search for a league</span>
+              </div>
+            </div>
+            <div style="align-self: end" class="nav-sample">
+              <div class="nav-item active"><span class="icon-mask" style="-webkit-mask-image: url('../icons/home.svg'); mask-image: url('../icons/home.svg')"></span><span>Home</span></div>
+              <div class="nav-item"><span class="icon-mask" style="background: var(--gray-600); -webkit-mask-image: url('../icons/play.svg'); mask-image: url('../icons/play.svg')"></span><span>Play</span></div>
+              <div class="nav-item"><span class="icon-mask" style="background: var(--gray-600); -webkit-mask-image: url('../icons/profile.svg'); mask-image: url('../icons/profile.svg')"></span><span>Profile</span></div>
+            </div>
+          </div>
+          <div class="panel" style="border-radius: 14px">
+            <h3 class="section-type">Decision reminders</h3>
+            <div class="demo-block">20 screen inset</div>
+            <div class="demo-block">28 between major sections</div>
+            <div class="demo-block">12 between stacked controls</div>
+            <div class="demo-block">6 between icon and label</div>
+            <div class="demo-block">48 minimum interactive target</div>
+            <div class="demo-block">52 minimum search/button height</div>
+            <div class="demo-block">160 minimum QR action height</div>
+            <div class="demo-block">72 bottom navigation height before safe area</div>
+            <div class="demo-block">120ms ease-out for simple state transitions</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
