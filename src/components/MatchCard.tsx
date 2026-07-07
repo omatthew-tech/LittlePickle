@@ -23,6 +23,7 @@ type MatchCardProps = {
   onReportScore: (matchId: string) => void;
   playerAction?: "pass" | "none";
   primaryActionLabel?: string;
+  primaryActionTone?: "default" | "pickleLeaf";
   startsAtLabel?: string | null;
   teams: [MatchTeam, MatchTeam];
 };
@@ -35,6 +36,7 @@ export function MatchCard({
   onReportScore,
   playerAction = "pass",
   primaryActionLabel = "Report score",
+  primaryActionTone = "default",
   startsAtLabel,
   teams
 }: MatchCardProps) {
@@ -93,6 +95,7 @@ export function MatchCard({
           label={primaryActionLabel}
           onPress={() => onReportScore(matchId)}
           style={styles.reportButton}
+          tone={primaryActionTone}
         />
       </View>
     </View>

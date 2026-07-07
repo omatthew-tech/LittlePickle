@@ -134,6 +134,7 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
                 onReportScore={(matchId) => setScoreMatchId(matchId)}
                 playerAction="none"
                 primaryActionLabel="Report score"
+                primaryActionTone="pickleLeaf"
                 teams={activeMatchTeams(match)}
               />
             ))}

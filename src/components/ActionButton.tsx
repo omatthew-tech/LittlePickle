@@ -8,6 +8,7 @@ type ActionButtonProps = {
   label: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  tone?: "default" | "pickleLeaf";
   variant?: "primary" | "text";
   accessibilityLabel?: string;
 };
@@ -19,9 +20,11 @@ export function ActionButton({
   label,
   onPress,
   style,
+  tone = "default",
   variant = "primary"
 }: ActionButtonProps) {
   const isPrimary = variant === "primary";
+  const isPickleLeaf = isPrimary && tone === "pickleLeaf";
 
   return (
     <Pressable
@@ -32,13 +35,14 @@ export function ActionButton({
       style={({ pressed }) => [
         styles.base,
         isPrimary ? styles.primary : styles.text,
-        pressed && isPrimary ? styles.primaryPressed : null,
+        isPickleLeaf ? styles.pickleLeaf : null,
+        pressed && isPrimary ? (isPickleLeaf ? styles.pickleLeafPressed : styles.primaryPressed) : null,
         disabled ? (isPrimary ? styles.primaryDisabled : styles.textDisabled) : null,
         style
       ]}
     >
       {({ pressed }) => {
-        const foreground = getForegroundColor({ disabled, isPrimary, pressed });
+        const foreground = getForegroundColor({ disabled, isPrimary, pressed, tone });
 
         return (
           <View style={styles.content}>
@@ -59,14 +63,20 @@ export function ActionButton({
 
 function getForegroundColor({
   disabled,
-  isPrimary
+  isPrimary,
+  tone
 }: {
   disabled: boolean;
   isPrimary: boolean;
   pressed: boolean;
+  tone: "default" | "pickleLeaf";
 }) {
   if (disabled) {
     return theme.color.text.disabled;
+  }
+
+  if (isPrimary && tone === "pickleLeaf") {
+    return theme.color.text.onPrimary;
   }
 
   return isPrimary ? theme.color.text.onPrimary : theme.color.action.primary;
@@ -100,6 +110,12 @@ const styles = StyleSheet.create({
   },
   primaryPressed: {
     backgroundColor: theme.color.action.primaryPressed
+  },
+  pickleLeaf: {
+    backgroundColor: theme.color.surface.social
+  },
+  pickleLeafPressed: {
+    backgroundColor: "#B9CE8F"
   },
   text: {
     backgroundColor: "transparent",
