@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BottomNavigation } from "./src/components/BottomNavigation";
@@ -21,6 +21,15 @@ function AppShell() {
   const [activeDestination, setActiveDestination] = useState<Destination>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(process.env.EXPO_PUBLIC_DEFAULT_SESSION_ID ?? null);
   const [activeQueueProfile, setActiveQueueProfile] = useState<LeagueQueueProfile | null>(null);
+  const [homeVisitKey, setHomeVisitKey] = useState(0);
+
+  const handleDestinationChanged = useCallback((destination: Destination) => {
+    if (destination === "home") {
+      setHomeVisitKey((previousKey) => previousKey + 1);
+    }
+
+    setActiveDestination(destination);
+  }, []);
 
   return (
     <SafeAreaProvider>
@@ -33,6 +42,7 @@ function AppShell() {
             onSessionSelected={(sessionId) => {
               setActiveSessionId(sessionId);
             }}
+            queueAutoOpenKey={homeVisitKey}
           />
         ) : null}
         {activeDestination === "play" ? (
@@ -46,7 +56,7 @@ function AppShell() {
           />
         ) : null}
         {activeDestination === "profile" ? <ProfileScreen /> : null}
-        <BottomNavigation activeDestination={activeDestination} onDestinationChanged={setActiveDestination} />
+        <BottomNavigation activeDestination={activeDestination} onDestinationChanged={handleDestinationChanged} />
       </View>
     </SafeAreaProvider>
   );

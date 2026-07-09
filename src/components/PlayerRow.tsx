@@ -60,11 +60,6 @@ export function PlayerRow({
         <Text style={styles.name}>{name}</Text>
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
       </View>
-      {selected ? (
-        <View accessibilityElementsHidden importantForAccessibility="no" style={styles.check}>
-          <RallyIcon color={theme.color.text.selected} name="check" size={theme.size.iconCompact} />
-        </View>
-      ) : null}
       {action !== "none" ? (
         <Pressable
           accessibilityLabel={`${labelFor(action)} ${name}`}
@@ -137,12 +132,6 @@ const styles = StyleSheet.create({
     ...theme.type.bodySecondary,
     color: theme.color.text.selected,
     fontWeight: "600"
-  },
-  check: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: theme.size.targetMinimum,
-    minWidth: theme.size.targetMinimum
   },
   identity: {
     flex: 1,

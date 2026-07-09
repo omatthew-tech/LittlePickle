@@ -11,6 +11,7 @@ type CurrentPlayersSectionProps = {
   live: boolean;
   loading: boolean;
   players: Player[];
+  readOnly?: boolean;
   setPlayerInSession: (playerId: string, inSession: boolean) => Promise<unknown>;
 };
 
@@ -19,6 +20,7 @@ export function CurrentPlayersSection({
   live,
   loading,
   players,
+  readOnly = false,
   setPlayerInSession
 }: CurrentPlayersSectionProps) {
   const [playerQuery, setPlayerQuery] = useState("");
@@ -81,31 +83,33 @@ export function CurrentPlayersSection({
       <Text accessibilityRole="header" style={styles.sectionTitle}>
         Current players
       </Text>
-      <SearchField
-        completionPlaceholder={shouldUseLastNameCompletion ? "Last name" : null}
-        label="Add player"
-        onChangeText={handlePlayerQueryChange}
-        onSubmit={() => undefined}
-        placeholder="Add player"
-        scope="player"
-        value={playerQuery}
-      />
+      {!readOnly ? (
+        <SearchField
+          completionPlaceholder={shouldUseLastNameCompletion ? "Last name" : null}
+          label="Add player"
+          onChangeText={handlePlayerQueryChange}
+          onSubmit={() => undefined}
+          placeholder="Add player"
+          scope="player"
+          value={playerQuery}
+        />
+      ) : null}
       <View accessibilityLabel="Current players" accessibilityRole="list" style={styles.playerList}>
         {visiblePlayers.map((player) => (
           <PlayerRow
-            action={live && player.isPlaying ? "none" : player.inSession ? "remove" : "add"}
+            action={readOnly || (live && player.isPlaying) ? "none" : player.inSession ? "remove" : "add"}
             avatarInitials={player.initials}
             avatarUrl={player.avatarUrl}
             key={player.id}
             meta={[player.skill ? player.skill.toFixed(2) : null, player.isPlaying ? "Playing" : null].filter(Boolean).join(" | ")}
             name={player.name}
             onAction={(action) => void handlePlayerMembership(player.id, action === "add")}
-            onSelectionChange={(selected) => void handlePlayerMembership(player.id, selected)}
+            onSelectionChange={readOnly ? undefined : (selected) => void handlePlayerMembership(player.id, selected)}
             selected={Boolean(player.inSession)}
           />
         ))}
       </View>
-      {shouldShowAddPlayerPanel ? (
+      {!readOnly && shouldShowAddPlayerPanel ? (
         <View style={styles.addPlayerPanel}>
           {addPlayerError ? (
             <Text accessibilityLiveRegion="polite" style={styles.errorText}>

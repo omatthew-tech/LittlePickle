@@ -329,6 +329,13 @@ export async function searchLeaguePlayerNames(organizationId: string, query: str
   });
 }
 
+export async function updatePlayerProfileImage(playerId: string, profileImagePath: string) {
+  return rpc<LeaguePlayerNameMatch>("update_player_profile_image", {
+    p_player_id: playerId,
+    p_profile_image_path: profileImagePath
+  });
+}
+
 export async function joinLeagueQueue(input: JoinLeagueQueueInput) {
   return rpc<JoinLeagueQueueResult>("join_league_queue", {
     p_allow_duplicate_name: input.allowDuplicateName ?? false,

@@ -16,6 +16,7 @@ export type LeagueQueueProfile = {
   leagueName: string;
   playerId: string;
   rating?: number | null;
+  readOnly?: boolean;
   sessionId: string;
 };
 
@@ -28,6 +29,7 @@ type LeagueQueueScreenProps = {
 
 export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChanged, profile }: LeagueQueueScreenProps) {
   const insets = useSafeAreaInsets();
+  const readOnly = Boolean(profile.readOnly);
   const {
     activeMatches,
     addNewPlayerToSession,
@@ -36,7 +38,7 @@ export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChange
     loading,
     players,
     setPlayerInSession
-  } = usePlaySession(profile.sessionId);
+  } = usePlaySession(profile.sessionId, { readOnly });
   const [updatingMembership, setUpdatingMembership] = useState(false);
   const queuedPlayer = useMemo(
     () => players.find((player) => player.id === profile.playerId) ?? null,
@@ -104,18 +106,20 @@ export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChange
           <Text numberOfLines={2} style={styles.queueName}>
             {displayName}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            disabled={updatingMembership || loading}
-            onPress={() => void handleQueueMembership()}
-            style={({ pressed }) => [
-              styles.queueAction,
-              pressed ? styles.queueActionPressed : null,
-              updatingMembership || loading ? styles.queueActionDisabled : null
-            ]}
-          >
-            <Text style={styles.queueActionText}>{membershipActionLabel}</Text>
-          </Pressable>
+          {!readOnly ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={updatingMembership || loading}
+              onPress={() => void handleQueueMembership()}
+              style={({ pressed }) => [
+                styles.queueAction,
+                pressed ? styles.queueActionPressed : null,
+                updatingMembership || loading ? styles.queueActionDisabled : null
+              ]}
+            >
+              <Text style={styles.queueActionText}>{membershipActionLabel}</Text>
+            </Pressable>
+          ) : null}
         </View>
         <View style={styles.queueDivider} />
         <View style={styles.queueStats}>
@@ -137,6 +141,7 @@ export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChange
         live={live}
         loading={loading}
         players={players}
+        readOnly={readOnly}
         setPlayerInSession={setPlayerInSession}
       />
     </ScrollView>

@@ -52,8 +52,13 @@ type PlaySessionState = {
   passRecommendedPlayer: (recommendationId: string, playerId: string) => Promise<void>;
 };
 
-export function usePlaySession(sessionId?: string | null): PlaySessionState {
+type UsePlaySessionOptions = {
+  readOnly?: boolean;
+};
+
+export function usePlaySession(sessionId?: string | null, options: UsePlaySessionOptions = {}): PlaySessionState {
   const resolvedSessionId = sessionId ?? defaultSessionId ?? null;
+  const readOnly = Boolean(options.readOnly);
   const liveEnabled = Boolean(isSupabaseConfigured && resolvedSessionId);
   const needsLiveSession = Boolean(isSupabaseConfigured && !resolvedSessionId);
   const [loading, setLoading] = useState(liveEnabled);
@@ -91,7 +96,9 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
     setErrorMessage(null);
 
     try {
-      const sessionData = await loadSessionData(resolvedSessionId);
+      const sessionData = await loadSessionData(resolvedSessionId, {
+        regenerateRecommendations: !readOnly
+      });
 
       setRecommendations(sessionData.recommendationResponse.recommendations);
       setActiveMatches(sessionData.matches.matches);
@@ -109,11 +116,16 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
     } finally {
       setLoading(false);
     }
-  }, [liveEnabled, needsLiveSession, resolvedSessionId, matchFlowApiConfigKey]);
+  }, [liveEnabled, needsLiveSession, readOnly, resolvedSessionId, matchFlowApiConfigKey]);
 
   const passRecommendedPlayer = useCallback(
     async (recommendationId: string, playerId: string) => {
       if (!liveEnabled || !resolvedSessionId) {
+        return;
+      }
+
+      if (readOnly) {
+        setErrorMessage("This queue is view only.");
         return;
       }
 
@@ -139,11 +151,16 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
         setErrorMessage(error instanceof Error ? error.message : "Could not pass player.");
       }
     },
-    [liveEnabled, resolvedSessionId]
+    [liveEnabled, readOnly, resolvedSessionId]
   );
 
   const setPlayerInSession = useCallback(
     async (playerId: string, inSession: boolean) => {
+      if (readOnly) {
+        setErrorMessage("This queue is view only.");
+        return false;
+      }
+
       if (!liveEnabled || !resolvedSessionId) {
         setPlayers((previousPlayers) =>
           previousPlayers.map((player) =>
@@ -175,7 +192,7 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
         return false;
       }
     },
-    [liveEnabled, resolvedSessionId]
+    [liveEnabled, readOnly, resolvedSessionId]
   );
 
   const addNewPlayerToSession = useCallback(
@@ -189,6 +206,11 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
 
       if (needsLiveSession) {
         setErrorMessage("Join a league queue from Home.");
+        return false;
+      }
+
+      if (readOnly) {
+        setErrorMessage("This queue is view only.");
         return false;
       }
 
@@ -221,12 +243,17 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
         setLoading(false);
       }
     },
-    [liveEnabled, needsLiveSession, resolvedSessionId]
+    [liveEnabled, needsLiveSession, readOnly, resolvedSessionId]
   );
 
   const startRecommendedMatch = useCallback(
     async (recommendationId: string) => {
       if (!liveEnabled || !resolvedSessionId) {
+        return;
+      }
+
+      if (readOnly) {
+        setErrorMessage("This queue is view only.");
         return;
       }
 
@@ -249,12 +276,17 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
         setErrorMessage(error instanceof Error ? error.message : "Could not start match.");
       }
     },
-    [activeMatches.length, courtCount, liveEnabled, refresh, resolvedSessionId]
+    [activeMatches.length, courtCount, liveEnabled, readOnly, refresh, resolvedSessionId]
   );
 
   const completeActiveMatch = useCallback(
     async (matchId: string, teamOneScore: number, teamTwoScore: number) => {
       if (!liveEnabled || !resolvedSessionId) {
+        return;
+      }
+
+      if (readOnly) {
+        setErrorMessage("This queue is view only.");
         return;
       }
 
@@ -285,11 +317,16 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
         setErrorMessage(error instanceof Error ? error.message : "Could not report score.");
       }
     },
-    [liveEnabled, resolvedSessionId]
+    [liveEnabled, readOnly, resolvedSessionId]
   );
 
   const closeSession = useCallback(async () => {
     if (!liveEnabled || !resolvedSessionId) {
+      return false;
+    }
+
+    if (readOnly) {
+      setErrorMessage("This queue is view only.");
       return false;
     }
 
@@ -310,7 +347,7 @@ export function usePlaySession(sessionId?: string | null): PlaySessionState {
     } finally {
       setLoading(false);
     }
-  }, [liveEnabled, resolvedSessionId]);
+  }, [liveEnabled, readOnly, resolvedSessionId]);
 
   useEffect(() => {
     setErrorMessage(null);
@@ -366,7 +403,9 @@ type RosterSetters = {
 };
 
 async function reloadAfterRosterChange(sessionId: string, setters: RosterSetters) {
-  const sessionData = await loadSessionData(sessionId);
+  const sessionData = await loadSessionData(sessionId, {
+    regenerateRecommendations: true
+  });
 
   setters.setRecommendations(sessionData.recommendationResponse.recommendations);
   setters.setActiveMatches(sessionData.matches.matches);
@@ -385,7 +424,10 @@ type LoadedSessionData = {
   warningMessage: string | null;
 };
 
-async function loadSessionData(sessionId: string): Promise<LoadedSessionData> {
+async function loadSessionData(
+  sessionId: string,
+  options: { regenerateRecommendations: boolean }
+): Promise<LoadedSessionData> {
   const [activeRecommendations, snapshot, matches, completed, playerOptions] = await Promise.all([
     getActiveRecommendations(sessionId),
     getSessionRecommendationSnapshot(sessionId),
@@ -397,7 +439,12 @@ async function loadSessionData(sessionId: string): Promise<LoadedSessionData> {
   const courtCount = snapshot.organization.number_of_courts;
   const hasOpenCourt = matches.matches.length < courtCount;
 
-  if (activeRecommendations.recommendations.length > 0 || !isMatchFlowApiConfigured || !hasOpenCourt) {
+  if (
+    activeRecommendations.recommendations.length > 0 ||
+    !options.regenerateRecommendations ||
+    !isMatchFlowApiConfigured ||
+    !hasOpenCourt
+  ) {
     return {
       completed,
       courtCount,

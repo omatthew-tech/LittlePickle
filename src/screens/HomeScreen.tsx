@@ -25,13 +25,13 @@ import { leagueQrValue, parseLeagueQrValue } from "../lib/leagueCodes";
 import {
   createLeague,
   createPlayer,
-  ensureCurrentUserPlayer,
   getLeagueByCode,
   getMyOrganizations,
   getMyProfile,
   getOrCreateOpenPlaySession,
   getOrganizationOpenSessions,
   getOrganizationPlayersForAdmin,
+  getSessionPlayerOptions,
   joinLeagueQueue,
   searchLeaguePlayerNames,
   searchOrganizations,
@@ -44,9 +44,12 @@ import {
 } from "../lib/littlePickleData";
 import { LeagueQueueScreen, type LeagueQueueProfile } from "./LeagueQueueScreen";
 import {
+  getActiveLocalPlayerProfile,
   getLocalGuestLeagueProfile,
-  getLocalGuestLeagueProfiles,
+  getLocalPlayedLeagues,
+  saveLocalPlayedLeague,
   saveLocalGuestLeagueProfile,
+  type LocalPlayedLeague,
   type LocalGuestLeagueProfile
 } from "../lib/localGuestProfile";
 import { isMatchFlowApiConfigured, sendLeagueQrEmail } from "../lib/matchFlowApi";
@@ -55,6 +58,7 @@ type HomeScreenProps = {
   activeQueueProfile: LeagueQueueProfile | null;
   onQueueProfileChanged: (profile: LeagueQueueProfile | null) => void;
   onSessionSelected: (sessionId: string) => void;
+  queueAutoOpenKey: number;
 };
 
 type CreateStep = "home" | "intro" | "name" | "courts" | "location" | "verify" | "success";
@@ -88,7 +92,12 @@ const initialDraft: LeagueDraft = {
   otpSent: false
 };
 
-export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessionSelected }: HomeScreenProps) {
+export function HomeScreen({
+  activeQueueProfile,
+  onQueueProfileChanged,
+  onSessionSelected,
+  queueAutoOpenKey
+}: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const {
     configured,
@@ -99,6 +108,7 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
   } = useAuth();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const qrCodeRef = useRef<QrCodeRef | null>(null);
+  const lastQueueAutoOpenKey = useRef<number | null>(null);
   const [createStep, setCreateStep] = useState<CreateStep>("home");
   const [draft, setDraft] = useState<LeagueDraft>(initialDraft);
   const [createdLeague, setCreatedLeague] = useState<OrganizationSummary | null>(null);
@@ -107,7 +117,7 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
   const [leagueQuery, setLeagueQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
-  const [localProfiles, setLocalProfiles] = useState<LocalGuestLeagueProfile[]>([]);
+  const [localLeagues, setLocalLeagues] = useState<LocalPlayedLeague[]>([]);
   const [searchResults, setSearchResults] = useState<OrganizationSearchResult[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -144,8 +154,8 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
     setErrorMessage(null);
 
     try {
-      const nextProfiles = await getLocalGuestLeagueProfiles();
-      setLocalProfiles(nextProfiles);
+      const nextLeagues = await getLocalPlayedLeagues();
+      setLocalLeagues(nextLeagues);
 
       if (configured && session) {
         const nextOrganizations = await getMyOrganizations();
@@ -163,6 +173,68 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
   useEffect(() => {
     void loadHomeData();
   }, [loadHomeData]);
+
+  useEffect(() => {
+    if (lastQueueAutoOpenKey.current === queueAutoOpenKey) {
+      return undefined;
+    }
+
+    lastQueueAutoOpenKey.current = queueAutoOpenKey;
+
+    if (!configured || activeQueueProfile || createStep !== "home") {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function openActiveQueueIfCurrent() {
+      try {
+        const profile = await getActiveLocalPlayerProfile();
+
+        if (!profile) {
+          return;
+        }
+
+        const sessionId = profile.sessionId ?? (await readOpenQueueSession(profile.leagueId));
+
+        if (!sessionId) {
+          return;
+        }
+
+        const playerOptions = await getSessionPlayerOptions(sessionId);
+        const currentPlayer = playerOptions.find((player) => player.id === profile.playerId);
+
+        if (!currentPlayer || (!currentPlayer.in_session && !currentPlayer.is_playing)) {
+          return;
+        }
+
+        const savedProfile = await saveLocalGuestLeagueProfile({
+          avatarPath: currentPlayer.profile_image_path ?? profile.avatarPath ?? null,
+          displayName: currentPlayer.name,
+          leagueId: profile.leagueId,
+          leagueName: profile.leagueName,
+          playerId: profile.playerId,
+          rating: currentPlayer.skill,
+          sessionId
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        onQueueProfileChanged(savedProfile);
+        onSessionSelected(sessionId);
+      } catch {
+        // If the saved profile is stale or the queue cannot be read, leave Home in its normal state.
+      }
+    }
+
+    void openActiveQueueIfCurrent();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeQueueProfile, configured, createStep, onQueueProfileChanged, onSessionSelected, queueAutoOpenKey]);
 
   useEffect(() => {
     if (!configured || leagueQuery.trim().length < 2 || createStep !== "home") {
@@ -304,6 +376,17 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
       return;
     }
 
+    const activeProfile = await getActiveLocalPlayerProfile();
+
+    if (activeProfile) {
+      setJoinLeague(league);
+      setJoinName(activeProfile.displayName);
+      setJoinMatches([]);
+      setSelectedPlayerId(null);
+      setJoinError(null);
+      return;
+    }
+
     if (session) {
       try {
         const profile = await getMyProfile();
@@ -438,47 +521,7 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
       return;
     }
 
-    if (session) {
-      await openQueueForCurrentUser(organization);
-      return;
-    }
-
     await startJoinForLeague(leagueFromOrganization(organization));
-  }
-
-  async function openQueueForCurrentUser(organization: OrganizationSummary) {
-    if (!configured) {
-      setErrorMessage("Live league queue needs Supabase settings.");
-      return;
-    }
-
-    setLoading(true);
-    setErrorMessage(null);
-
-    try {
-      const [profile, playerId] = await Promise.all([
-        getMyProfile(),
-        ensureCurrentUserPlayer(organization.id)
-      ]);
-      const sessionId = await resolveOpenQueueSession(organization.id, organization.number_of_courts);
-      const savedProfile = await saveLocalGuestLeagueProfile({
-        avatarPath: profile.avatar_path,
-        displayName: profile.display_name.trim() || "Player",
-        leagueId: organization.id,
-        leagueName: organization.name,
-        playerId,
-        rating: null,
-        sessionId
-      });
-
-      onQueueProfileChanged(savedProfile);
-      onSessionSelected(sessionId);
-      await loadHomeData();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not enter the league queue.");
-    } finally {
-      setLoading(false);
-    }
   }
 
   async function openQueueForProfile(profile: LocalGuestLeagueProfile, organization?: OrganizationSummary) {
@@ -517,6 +560,77 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
       setErrorMessage(error instanceof Error ? error.message : "Could not enter the league queue.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function viewQueueForSavedLeague(league: LocalPlayedLeague) {
+    if (!configured) {
+      setErrorMessage("Live league queue needs Supabase settings.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage(null);
+    setJoinError(null);
+
+    try {
+      const activeProfile = await getActiveLocalPlayerProfile();
+      const matchingProfile = activeProfile?.leagueId === league.leagueId ? activeProfile : null;
+      const openSessionId = await readOpenQueueSession(league.leagueId);
+      const sessionId = openSessionId ?? league.sessionId ?? matchingProfile?.sessionId ?? null;
+
+      if (!sessionId) {
+        setErrorMessage("This league does not have a queue to view yet.");
+        return;
+      }
+
+      await saveLocalPlayedLeague({
+        leagueId: league.leagueId,
+        leagueName: league.leagueName,
+        locationText: league.locationText ?? null,
+        numberOfCourts: league.numberOfCourts ?? null,
+        sessionId,
+        slug: league.slug ?? null
+      });
+
+      setJoinLeague(null);
+      setJoinName("");
+      setSelectedPlayerId(null);
+      onQueueProfileChanged({
+        avatarPath: matchingProfile?.avatarPath ?? null,
+        displayName: matchingProfile?.displayName ?? "Player",
+        leagueName: league.leagueName,
+        playerId: matchingProfile?.playerId ?? "",
+        rating: matchingProfile?.rating ?? null,
+        readOnly: true,
+        sessionId
+      });
+      onSessionSelected(sessionId);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not view the league queue.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function readOpenQueueSession(organizationId: string) {
+    const cachedOpenSessionId = organizationOpenSessions[organizationId]?.[0]?.id;
+
+    if (cachedOpenSessionId) {
+      return cachedOpenSessionId;
+    }
+
+    try {
+      const openSessions = await getOrganizationOpenSessions(organizationId);
+
+      setOrganizationOpenSessions((previousSessions) => ({
+        ...previousSessions,
+        [organizationId]: openSessions
+      }));
+
+      return openSessions[0]?.id ?? null;
+    } catch {
+      return null;
     }
   }
 
@@ -876,30 +990,29 @@ export function HomeScreen({ activeQueueProfile, onQueueProfileChanged, onSessio
   }
 
   function renderLocalGuestLeagues() {
-    const hiddenProfiles = localProfiles.filter(
-      (profile) => !organizations.some((organization) => organization.id === profile.leagueId)
+    const hiddenLeagues = localLeagues.filter(
+      (league) => !organizations.some((organization) => organization.id === league.leagueId)
     );
 
-    if (hiddenProfiles.length === 0) {
+    if (hiddenLeagues.length === 0) {
       return null;
     }
 
     return (
       <View style={styles.list}>
         <Text style={styles.sectionLabel}>Saved on this phone</Text>
-        {hiddenProfiles.map((profile) => (
+        {hiddenLeagues.map((league) => (
           <Pressable
-            accessibilityLabel={`Enter ${profile.leagueName} as ${profile.displayName}`}
+            accessibilityLabel={`View ${league.leagueName} queue`}
             accessibilityRole="button"
-            key={profile.leagueId}
-            onPress={() => void openQueueForProfile(profile)}
+            key={league.leagueId}
+            onPress={() => void viewQueueForSavedLeague(league)}
             style={({ pressed }) => [styles.leagueRow, pressed ? styles.rowPressed : null]}
           >
             <View style={styles.leagueText}>
-              <Text style={styles.leagueName}>{profile.leagueName}</Text>
-              <Text style={styles.leagueMeta}>{profile.displayName}</Text>
+              <Text style={styles.leagueName}>{league.leagueName}</Text>
             </View>
-            <Text style={styles.startText}>Enter queue</Text>
+            <Text style={styles.startText}>View</Text>
           </Pressable>
         ))}
       </View>
