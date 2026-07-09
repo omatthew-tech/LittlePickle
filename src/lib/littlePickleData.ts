@@ -336,6 +336,13 @@ export async function updatePlayerProfileImage(playerId: string, profileImagePat
   });
 }
 
+export async function updatePlayerDisplayName(playerId: string, displayName: string) {
+  return rpc<LeaguePlayerNameMatch>("update_player_display_name", {
+    p_display_name: displayName,
+    p_player_id: playerId
+  });
+}
+
 export async function joinLeagueQueue(input: JoinLeagueQueueInput) {
   return rpc<JoinLeagueQueueResult>("join_league_queue", {
     p_allow_duplicate_name: input.allowDuplicateName ?? false,

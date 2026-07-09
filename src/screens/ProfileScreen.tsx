@@ -1,222 +1,51 @@
 import { useEffect, useMemo, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionButton } from "../components/ActionButton";
-import { SearchField } from "../components/SearchField";
+import { RallyIcon } from "../components/RallyIcon";
 import { theme } from "../design/theme";
 import { useAuth } from "../lib/auth";
-import {
-  getOrganizationOpenSessions,
-  searchLeaguePlayerNames,
-  searchOrganizations,
-  updatePlayerProfileImage,
-  type LeaguePlayerNameMatch,
-  type OrganizationSearchResult
-} from "../lib/littlePickleData";
+import { updatePlayerDisplayName, updatePlayerProfileImage } from "../lib/littlePickleData";
 import {
   getActiveLocalPlayerProfile,
-  getLocalPlayedLeagues,
   saveActiveLocalPlayerProfile,
-  saveLocalPlayedLeague,
-  type LocalPlayedLeague,
   type LocalPlayerProfile
 } from "../lib/localGuestProfile";
 import { publicProfileImageUrl, uploadProfileImage } from "../lib/profileImages";
 
 type SupportedProfileImageType = "image/jpeg" | "image/png" | "image/webp";
 
-type ProfileSwitchLeague = {
-  id: string;
-  leagueName: string;
-  locationText?: string | null;
-  numberOfCourts?: number | null;
-  sessionId?: string | null;
-  slug?: string | null;
-};
-
 export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { configured, ensureAnonymousSession } = useAuth();
   const [activeProfile, setActiveProfile] = useState<LocalPlayerProfile | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [leagueQuery, setLeagueQuery] = useState("");
-  const [leagueResults, setLeagueResults] = useState<OrganizationSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [playedLeagues, setPlayedLeagues] = useState<LocalPlayedLeague[]>([]);
-  const [playerMatches, setPlayerMatches] = useState<LeaguePlayerNameMatch[]>([]);
-  const [playerQuery, setPlayerQuery] = useState("");
-  const [selectedLeague, setSelectedLeague] = useState<ProfileSwitchLeague | null>(null);
-  const [switchOpen, setSwitchOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
 
   const activeAvatarUrl = useMemo(
     () => (activeProfile?.avatarPath ? publicProfileImageUrl(activeProfile.avatarPath) : null),
     [activeProfile?.avatarPath]
   );
 
-  const visiblePlayedLeagues = useMemo(() => {
-    const normalizedQuery = leagueQuery.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return playedLeagues;
-    }
-
-    return playedLeagues.filter((league) => league.leagueName.toLowerCase().includes(normalizedQuery));
-  }, [leagueQuery, playedLeagues]);
+  const normalizedNameDraft = normalizeDisplayName(nameDraft);
 
   useEffect(() => {
     void loadLocalProfileData();
   }, []);
-
-  useEffect(() => {
-    if (!switchOpen || !configured || leagueQuery.trim().length < 2 || selectedLeague) {
-      setLeagueResults([]);
-      return;
-    }
-
-    let cancelled = false;
-
-    searchOrganizations(leagueQuery)
-      .then((results) => {
-        if (!cancelled) {
-          setLeagueResults(results);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "Could not search leagues.");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [configured, leagueQuery, selectedLeague, switchOpen]);
-
-  useEffect(() => {
-    if (!switchOpen || !selectedLeague || !configured) {
-      setPlayerMatches([]);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setErrorMessage(null);
-
-    searchLeaguePlayerNames(selectedLeague.id, playerQuery.trim())
-      .then((players) => {
-        if (!cancelled) {
-          setPlayerMatches(players);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "Could not load players.");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [configured, playerQuery, selectedLeague, switchOpen]);
 
   async function loadLocalProfileData() {
     setLoading(true);
     setErrorMessage(null);
 
     try {
-      const [profile, leagues] = await Promise.all([
-        getActiveLocalPlayerProfile(),
-        getLocalPlayedLeagues()
-      ]);
+      const profile = await getActiveLocalPlayerProfile();
       setActiveProfile(profile);
-      setPlayedLeagues(leagues);
+      setNameDraft(profile?.displayName ?? "");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not load profile.");
     } finally {
       setLoading(false);
-    }
-  }
-
-  function openSwitchUser() {
-    setLeagueQuery("");
-    setLeagueResults([]);
-    setPlayerMatches([]);
-    setPlayerQuery("");
-    setSelectedLeague(null);
-    setErrorMessage(null);
-    setSwitchOpen(true);
-  }
-
-  function closeSwitchUser() {
-    setSwitchOpen(false);
-    setLeagueQuery("");
-    setLeagueResults([]);
-    setPlayerMatches([]);
-    setPlayerQuery("");
-    setSelectedLeague(null);
-  }
-
-  function selectLeague(league: ProfileSwitchLeague) {
-    setSelectedLeague(league);
-    setPlayerQuery("");
-    setPlayerMatches([]);
-    setErrorMessage(null);
-  }
-
-  async function selectPlayer(player: LeaguePlayerNameMatch) {
-    if (!selectedLeague) {
-      return;
-    }
-
-    setLoading(true);
-    setErrorMessage(null);
-
-    try {
-      const sessionId = await openSessionIdFor(selectedLeague);
-      const profile = await saveActiveLocalPlayerProfile({
-        avatarPath: player.profile_image_path,
-        displayName: player.display_name,
-        leagueId: selectedLeague.id,
-        leagueName: selectedLeague.leagueName,
-        playerId: player.id,
-        rating: player.rating,
-        sessionId
-      });
-      await saveLocalPlayedLeague({
-        leagueId: selectedLeague.id,
-        leagueName: selectedLeague.leagueName,
-        locationText: selectedLeague.locationText ?? null,
-        numberOfCourts: selectedLeague.numberOfCourts ?? null,
-        sessionId,
-        slug: selectedLeague.slug ?? null
-      });
-
-      setActiveProfile(profile);
-      setPlayedLeagues(await getLocalPlayedLeagues());
-      closeSwitchUser();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not switch player.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function openSessionIdFor(league: ProfileSwitchLeague) {
-    if (league.sessionId) {
-      return league.sessionId;
-    }
-
-    try {
-      const sessions = await getOrganizationOpenSessions(league.id);
-      return sessions[0]?.id ?? null;
-    } catch {
-      return null;
     }
   }
 
@@ -227,7 +56,7 @@ export function ProfileScreen() {
     }
 
     if (!activeProfile) {
-      setErrorMessage("Switch user before adding a profile photo.");
+      setErrorMessage("Choose a player before editing your profile.");
       return;
     }
 
@@ -272,9 +101,7 @@ export function ProfileScreen() {
       });
 
       setActiveProfile(updatedProfile);
-      setPlayerMatches((players) =>
-        players.map((player) => (player.id === updatedPlayer.id ? updatedPlayer : player))
-      );
+      setNameDraft(updatedProfile.displayName);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not save profile photo.");
     } finally {
@@ -282,179 +109,124 @@ export function ProfileScreen() {
     }
   }
 
+  async function handleDone() {
+    Keyboard.dismiss();
+    await saveNameEdit();
+  }
+
+  async function saveNameEdit() {
+    if (!configured) {
+      setErrorMessage("Supabase is not configured.");
+      return;
+    }
+
+    if (!activeProfile) {
+      setErrorMessage("Choose a player before editing your profile.");
+      return;
+    }
+
+    if (normalizedNameDraft.split(" ").filter(Boolean).length < 2) {
+      setErrorMessage("Enter your first and last name.");
+      return;
+    }
+
+    if (normalizedNameDraft === activeProfile.displayName) {
+      setErrorMessage(null);
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      await ensureAnonymousSession();
+
+      const updatedPlayer = await updatePlayerDisplayName(activeProfile.playerId, normalizedNameDraft);
+      const updatedProfile = await saveActiveLocalPlayerProfile({
+        avatarPath: updatedPlayer.profile_image_path ?? activeProfile.avatarPath ?? null,
+        displayName: updatedPlayer.display_name,
+        leagueId: activeProfile.leagueId,
+        leagueName: activeProfile.leagueName,
+        playerId: activeProfile.playerId,
+        rating: updatedPlayer.rating,
+        sessionId: activeProfile.sessionId ?? null
+      });
+
+      setActiveProfile(updatedProfile);
+      setNameDraft(updatedProfile.displayName);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not save name.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <>
-      <ScrollView
-        accessibilityLabel="Profile"
-        alwaysBounceVertical={false}
-        bounces={false}
-        contentContainerStyle={[
-          styles.screen,
-          {
-            paddingBottom: theme.size.navigationBottomHeight + insets.bottom,
-            paddingTop: insets.top + theme.space[20]
-          }
-        ]}
-        overScrollMode="never"
-      >
+    <ScrollView
+      accessibilityLabel="Profile"
+      alwaysBounceVertical={false}
+      bounces={false}
+      contentContainerStyle={[
+        styles.screen,
+        {
+          paddingBottom: theme.size.navigationBottomHeight + insets.bottom + theme.space[24],
+          paddingTop: insets.top + theme.space[32]
+        }
+      ]}
+      keyboardShouldPersistTaps="handled"
+      overScrollMode="never"
+    >
+      <View style={styles.headerRow}>
         <Text accessibilityRole="header" style={styles.pageTitle}>
           Profile
         </Text>
-        <View style={styles.panel}>
-          <View style={styles.avatarRow}>
-            <Pressable
-              accessibilityLabel={activeProfile ? "Change profile photo" : "Add profile photo"}
-              accessibilityRole="button"
-              disabled={loading}
-              onPress={() => void handlePickProfileImage()}
-              style={({ pressed }) => [styles.avatarFrame, pressed ? styles.avatarPressed : null]}
-            >
-              {activeAvatarUrl ? (
-                <Image source={{ uri: activeAvatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarInitials}>{initialsFor(activeProfile?.displayName)}</Text>
-              )}
-            </Pressable>
-            <View style={styles.profileText}>
-              <Text style={styles.value}>{activeProfile?.displayName ?? "No player selected"}</Text>
-              {activeProfile ? <Text style={styles.label}>{activeProfile.leagueName}</Text> : null}
-            </View>
+      </View>
+
+      <View style={styles.profileHero}>
+        <Pressable
+          accessibilityLabel={activeProfile ? "Change profile photo" : "Add profile photo"}
+          accessibilityRole="button"
+          disabled={loading}
+          onPress={() => void handlePickProfileImage()}
+          style={({ pressed }) => [styles.avatarButton, pressed ? styles.avatarPressed : null]}
+        >
+          <View style={styles.avatarFrame}>
+            {activeAvatarUrl ? (
+              <Image source={{ uri: activeAvatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarInitials}>{initialsFor(activeProfile?.displayName)}</Text>
+            )}
           </View>
-          {errorMessage && !switchOpen ? (
-            <Text accessibilityLiveRegion="polite" style={styles.errorText}>
-              {errorMessage}
-            </Text>
-          ) : null}
-          {loading && !switchOpen ? <ActivityIndicator color={theme.color.action.primary} /> : null}
-          <ActionButton disabled={!configured || loading} label="Switch user" onPress={openSwitchUser} />
-        </View>
-      </ScrollView>
-      <Modal animationType="fade" transparent visible={switchOpen} onRequestClose={closeSwitchUser}>
-        <View style={styles.modalBackdrop}>
-          <ScrollView contentContainerStyle={styles.switchDialog} keyboardShouldPersistTaps="handled">
-            {selectedLeague ? renderPlayerPicker() : renderLeaguePicker()}
-          </ScrollView>
-        </View>
-      </Modal>
-    </>
+          <View style={styles.cameraBadge}>
+            <RallyIcon color={theme.color.action.primary} name="camera" size={theme.size.iconDefault} />
+          </View>
+        </Pressable>
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.fieldLabel}>Display name</Text>
+        <TextInput
+          accessibilityLabel="Display name"
+          autoCapitalize="words"
+          editable={Boolean(activeProfile) && !loading}
+          onChangeText={setNameDraft}
+          onSubmitEditing={() => void handleDone()}
+          placeholder="Display name"
+          placeholderTextColor={theme.color.text.secondary}
+          returnKeyType="done"
+          selectionColor={theme.color.action.primary}
+          style={styles.nameInput}
+          value={nameDraft}
+        />
+      </View>
+
+      {errorMessage ? (
+        <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+          {errorMessage}
+        </Text>
+      ) : null}
+    </ScrollView>
   );
-
-  function renderLeaguePicker() {
-    return (
-      <>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>
-          Switch user
-        </Text>
-        <SearchField
-          label="Search for a league"
-          onChangeText={setLeagueQuery}
-          onSubmit={() => undefined}
-          placeholder="Search for a league"
-          scope="league"
-          value={leagueQuery}
-        />
-        {visiblePlayedLeagues.length > 0 ? (
-          <View style={styles.list}>
-            <Text style={styles.label}>My leagues</Text>
-            {visiblePlayedLeagues.map((league) => (
-              <Pressable
-                accessibilityLabel={`Choose ${league.leagueName}`}
-                accessibilityRole="button"
-                key={league.leagueId}
-                onPress={() => selectLeague(leagueFromPlayedLeague(league))}
-                style={({ pressed }) => [styles.selectRow, pressed ? styles.rowPressed : null]}
-              >
-                <Text style={styles.value}>{league.leagueName}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-        {leagueResults.length > 0 ? (
-          <View style={styles.list}>
-            <Text style={styles.label}>Search results</Text>
-            {leagueResults.map((league) => (
-              <Pressable
-                accessibilityLabel={`Choose ${league.name}`}
-                accessibilityRole="button"
-                key={league.id}
-                onPress={() => selectLeague(leagueFromSearchResult(league))}
-                style={({ pressed }) => [styles.selectRow, pressed ? styles.rowPressed : null]}
-              >
-                <View style={styles.profileText}>
-                  <Text style={styles.value}>{league.name}</Text>
-                  <Text style={styles.label}>
-                    {league.number_of_courts} courts
-                    {league.location_text ? ` | ${league.location_text}` : ""}
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-        {errorMessage ? (
-          <Text accessibilityLiveRegion="polite" style={styles.errorText}>
-            {errorMessage}
-          </Text>
-        ) : null}
-        <ActionButton label="Cancel" onPress={closeSwitchUser} variant="text" />
-      </>
-    );
-  }
-
-  function renderPlayerPicker() {
-    if (!selectedLeague) {
-      return null;
-    }
-
-    return (
-      <>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>
-          {selectedLeague.leagueName}
-        </Text>
-        <SearchField
-          label="Search players"
-          onChangeText={setPlayerQuery}
-          onSubmit={() => undefined}
-          placeholder="Search players"
-          scope="player"
-          value={playerQuery}
-        />
-        {loading ? <ActivityIndicator color={theme.color.action.primary} /> : null}
-        {playerMatches.length > 0 ? (
-          <View style={styles.list}>
-            {playerMatches.map((player) => (
-              <Pressable
-                accessibilityLabel={`Switch to ${player.display_name}`}
-                accessibilityRole="button"
-                key={player.id}
-                onPress={() => void selectPlayer(player)}
-                style={({ pressed }) => [styles.playerRow, pressed ? styles.rowPressed : null]}
-              >
-                <View style={styles.smallAvatar}>
-                  <Text style={styles.smallAvatarText}>{initialsFor(player.display_name)}</Text>
-                </View>
-                <View style={styles.profileText}>
-                  <Text style={styles.value}>{player.display_name}</Text>
-                  <Text style={styles.label}>{Number(player.rating).toFixed(2)}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        ) : !loading && playerQuery.trim().length > 0 ? (
-          <Text style={styles.label}>No players found.</Text>
-        ) : null}
-        {errorMessage ? (
-          <Text accessibilityLiveRegion="polite" style={styles.errorText}>
-            {errorMessage}
-          </Text>
-        ) : null}
-        <View style={styles.bottomActions}>
-          <ActionButton label="Back" onPress={() => setSelectedLeague(null)} variant="text" />
-          <ActionButton label="Cancel" onPress={closeSwitchUser} variant="text" />
-        </View>
-      </>
-    );
-  }
 }
 
 function contentTypeForImageAsset(asset: ImagePicker.ImagePickerAsset): SupportedProfileImageType {
@@ -477,27 +249,6 @@ function contentTypeForImageAsset(asset: ImagePicker.ImagePickerAsset): Supporte
   return "image/jpeg";
 }
 
-function leagueFromPlayedLeague(league: LocalPlayedLeague): ProfileSwitchLeague {
-  return {
-    id: league.leagueId,
-    leagueName: league.leagueName,
-    locationText: league.locationText ?? null,
-    numberOfCourts: league.numberOfCourts ?? null,
-    sessionId: league.sessionId ?? null,
-    slug: league.slug ?? null
-  };
-}
-
-function leagueFromSearchResult(league: OrganizationSearchResult): ProfileSwitchLeague {
-  return {
-    id: league.id,
-    leagueName: league.name,
-    locationText: league.location_text ?? null,
-    numberOfCourts: league.number_of_courts,
-    slug: league.slug
-  };
-}
-
 function initialsFor(value: string | null | undefined) {
   const normalizedValue = value?.trim();
 
@@ -513,129 +264,101 @@ function initialsFor(value: string | null | undefined) {
     .join("");
 }
 
+function normalizeDisplayName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+const avatarSize = 128;
+const cameraBadgeSize = 48;
+
 const styles = StyleSheet.create({
+  avatarButton: {
+    height: avatarSize + theme.space[8],
+    width: avatarSize + theme.space[8]
+  },
   avatarFrame: {
     alignItems: "center",
     backgroundColor: theme.color.surface.info,
     borderColor: theme.color.border.subtle,
-    borderRadius: 36,
+    borderRadius: avatarSize / 2,
     borderWidth: theme.border.quiet,
-    height: 72,
+    height: avatarSize,
     justifyContent: "center",
     overflow: "hidden",
-    width: 72
+    width: avatarSize
   },
   avatarImage: {
     height: "100%",
     width: "100%"
   },
   avatarInitials: {
-    ...theme.type.titleCard,
-    color: theme.color.text.selected
+    color: theme.color.text.selected,
+    fontFamily: theme.font.interface,
+    fontSize: 40,
+    fontWeight: "600",
+    letterSpacing: 0,
+    lineHeight: 48
   },
   avatarPressed: {
     opacity: 0.72
   },
-  avatarRow: {
+  cameraBadge: {
     alignItems: "center",
-    flexDirection: "row",
-    gap: theme.layout.inlineDefault
-  },
-  bottomActions: {
-    alignItems: "center",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between"
+    backgroundColor: theme.color.surface.card,
+    borderColor: theme.color.border.subtle,
+    borderRadius: cameraBadgeSize / 2,
+    borderWidth: theme.border.quiet,
+    bottom: theme.space[6],
+    height: cameraBadgeSize,
+    justifyContent: "center",
+    position: "absolute",
+    right: theme.space[2],
+    width: cameraBadgeSize,
+    ...theme.shadow.card
   },
   errorText: {
     ...theme.type.bodySecondary,
-    color: theme.color.feedback.error
+    color: theme.color.feedback.error,
+    marginTop: theme.space[12]
   },
-  label: {
-    ...theme.type.bodySecondary,
+  fieldLabel: {
+    ...theme.type.bodyDefault,
     color: theme.color.text.secondary
   },
-  list: {
-    gap: theme.layout.stackCompact
+  formGroup: {
+    gap: theme.space[8],
+    marginTop: theme.space[40]
   },
-  modalBackdrop: {
-    backgroundColor: "rgba(34, 40, 58, 0.36)",
-    flex: 1,
-    justifyContent: "center"
+  headerRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  nameInput: {
+    ...theme.type.bodyDefault,
+    backgroundColor: theme.color.surface.card,
+    borderColor: theme.color.border.control,
+    borderRadius: theme.radius.control,
+    borderWidth: theme.border.interactive,
+    color: theme.color.text.primary,
+    height: 56,
+    includeFontPadding: false,
+    lineHeight: theme.space[24],
+    minHeight: 56,
+    paddingHorizontal: theme.space[16],
+    textAlignVertical: "center"
   },
   pageTitle: {
-    ...theme.type.headingPage,
+    ...theme.type.headingBrand,
     color: theme.color.text.primary
   },
-  panel: {
-    backgroundColor: theme.color.surface.card,
-    borderColor: theme.color.border.subtle,
-    borderRadius: theme.radius.card,
-    borderWidth: theme.border.quiet,
-    gap: theme.layout.stackDefault,
-    marginTop: theme.layout.stackDefault,
-    padding: theme.layout.cardPadding
-  },
-  playerRow: {
+  profileHero: {
     alignItems: "center",
-    borderColor: theme.color.border.subtle,
-    borderRadius: theme.radius.control,
-    borderWidth: theme.border.quiet,
-    flexDirection: "row",
-    gap: theme.layout.inlineDefault,
-    minHeight: theme.size.playerRowMinimumHeight,
-    padding: theme.space[8]
-  },
-  profileText: {
-    flex: 1,
-    gap: theme.space[2],
-    minWidth: 0
-  },
-  rowPressed: {
-    backgroundColor: theme.color.surface.info
+    marginTop: theme.space[40]
   },
   screen: {
     backgroundColor: theme.color.surface.canvas,
     flexGrow: 1,
-    gap: theme.layout.stackDefault,
-    paddingHorizontal: theme.layout.screenInset
-  },
-  sectionTitle: {
-    ...theme.type.headingSection,
-    color: theme.color.text.primary
-  },
-  selectRow: {
-    borderColor: theme.color.border.subtle,
-    borderRadius: theme.radius.control,
-    borderWidth: theme.border.quiet,
-    minHeight: theme.size.targetMinimum,
-    justifyContent: "center",
-    padding: theme.space[12]
-  },
-  smallAvatar: {
-    alignItems: "center",
-    backgroundColor: theme.color.surface.info,
-    borderRadius: theme.radius.pill,
-    height: theme.size.avatarDefault,
-    justifyContent: "center",
-    width: theme.size.avatarDefault
-  },
-  smallAvatarText: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.selected,
-    fontWeight: "600"
-  },
-  switchDialog: {
-    backgroundColor: theme.color.surface.card,
-    borderColor: theme.color.border.subtle,
-    borderRadius: theme.radius.card,
-    borderWidth: theme.border.quiet,
-    gap: theme.layout.stackDefault,
-    margin: theme.layout.screenInset,
-    padding: theme.layout.cardPadding
-  },
-  value: {
-    ...theme.type.bodyDefault,
-    color: theme.color.text.primary
+    paddingHorizontal: theme.space[24]
   }
 });

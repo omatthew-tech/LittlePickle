@@ -3,10 +3,12 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 export type RallyIconName =
   | "add-player"
   | "back"
+  | "camera"
   | "check"
   | "error"
   | "history"
   | "home"
+  | "pencil"
   | "play"
   | "profile"
   | "scan"
@@ -49,6 +51,13 @@ function renderIcon(name: RallyIconName, color: string) {
       );
     case "back":
       return <Path d="M15 5 8 12l7 7" />;
+    case "camera":
+      return (
+        <>
+          <Path d="M8.2 6.5 9.5 4.8h5l1.3 1.7h2.5c1 0 1.7.8 1.7 1.7v8.6c0 1-.8 1.7-1.7 1.7H5.7c-1 0-1.7-.8-1.7-1.7V8.2c0-1 .8-1.7 1.7-1.7h2.5Z" />
+          <Circle cx="12" cy="12.3" r="3.2" />
+        </>
+      );
     case "check":
       return <Path d="m4.5 12.5 4.2 4.2L19.5 6.5" />;
     case "error":
@@ -72,6 +81,13 @@ function renderIcon(name: RallyIconName, color: string) {
           <Path d="M3.5 11.2 12 4l8.5 7.2" />
           <Path d="M5.8 10.4V20h12.4v-9.6" />
           <Path d="M10 20v-5.2h4V20" />
+        </>
+      );
+    case "pencil":
+      return (
+        <>
+          <Path d="M4.5 19.5 8 18.7 18.6 8.1a2.1 2.1 0 0 0-3-3L5 15.7l-.5 3.8Z" />
+          <Path d="m13.8 6.8 3.4 3.4" />
         </>
       );
     case "play":
