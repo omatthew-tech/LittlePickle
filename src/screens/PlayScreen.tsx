@@ -26,7 +26,6 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
     canStartRecommendedMatch,
     closeSession,
     completeActiveMatch,
-    completedMatches,
     courtCount,
     errorMessage,
     live,
@@ -37,7 +36,6 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
     startRecommendedMatch
   } = usePlaySession(sessionId);
   const [scoreMatchId, setScoreMatchId] = useState<string | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
 
   async function handlePassPlayer(matchId: string, playerId: string) {
     if (!live) {
@@ -154,58 +152,24 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
             teams={recommendationTeams(match)}
           />
         ))}
-        {!loading && recommendations.length === 0 ? <Text style={styles.emptyText}>No recommended matches yet.</Text> : null}
       </View>
 
-      <View style={styles.playersSection}>
-        <ActionButton
-          icon="history"
-          label={showHistory ? "Hide match history" : "View match history"}
-          onPress={() => {
-            setShowHistory((visible) => !visible);
-          }}
-          variant="text"
-        />
-        {live ? (
+      {live ? (
+        <View style={styles.playersSection}>
           <ActionButton
             icon="history"
             label="Refresh recommendations"
             onPress={() => void refresh()}
             variant="text"
           />
-        ) : null}
-        {live ? (
           <ActionButton
             disabled={loading || activeMatches.length > 0}
             label="End session"
             onPress={handleEndSession}
             variant="text"
           />
-        ) : null}
-        {showHistory ? (
-          <View style={styles.historySection}>
-            {completedMatches.length > 0 ? (
-              completedMatches.map((match) => (
-                <View key={match.id} style={styles.historyRow}>
-                  <View style={styles.historyText}>
-                    <Text style={styles.historyTitle}>
-                      {match.court_number ? `Court ${match.court_number}` : "Completed match"}
-                    </Text>
-                    <Text style={styles.historyMeta}>{completedMatchTeams(match)}</Text>
-                  </View>
-                  <Text style={styles.historyScore}>
-                    {match.team_one_score ?? "-"}-{match.team_two_score ?? "-"}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.emptyText}>
-                {live ? "No completed matches yet." : "Match history will appear once live score data is connected."}
-              </Text>
-            )}
-          </View>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
       <ScoreReportModal
         matchLabel={scoreMatch ? activeMatchLabel(scoreMatch) : "Active match"}
         onClose={() => setScoreMatchId(null)}
@@ -223,19 +187,6 @@ function friendlyPlayerName(playerId: string) {
     .join(" ");
 }
 
-function completedMatchTeams(match: { players: Array<{ name: string; team_number: 1 | 2 }> }) {
-  const teamOne = match.players
-    .filter((player) => player.team_number === 1)
-    .map((player) => player.name)
-    .join(" + ");
-  const teamTwo = match.players
-    .filter((player) => player.team_number === 2)
-    .map((player) => player.name)
-    .join(" + ");
-
-  return `${teamOne} vs ${teamTwo}`;
-}
-
 const styles = StyleSheet.create({
   activeSection: {
     marginTop: theme.layout.sectionGap
@@ -245,44 +196,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: theme.layout.screenInset
   },
-  emptyText: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.secondary
-  },
   errorText: {
     ...theme.type.bodySecondary,
     color: theme.color.feedback.error,
     marginTop: theme.space[8]
-  },
-  historyMeta: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.secondary
-  },
-  historyRow: {
-    alignItems: "center",
-    backgroundColor: theme.color.surface.card,
-    borderColor: theme.color.border.subtle,
-    borderRadius: theme.radius.card,
-    borderWidth: theme.border.quiet,
-    flexDirection: "row",
-    gap: theme.layout.inlineDefault,
-    padding: theme.layout.cardPadding
-  },
-  historyScore: {
-    ...theme.type.metricRecord,
-    color: theme.color.text.primary
-  },
-  historySection: {
-    gap: theme.layout.stackCompact
-  },
-  historyText: {
-    flex: 1,
-    gap: theme.space[2],
-    minWidth: 0
-  },
-  historyTitle: {
-    ...theme.type.titleCard,
-    color: theme.color.text.primary
   },
   loading: {
     marginTop: theme.layout.stackDefault

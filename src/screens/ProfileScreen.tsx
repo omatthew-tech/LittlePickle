@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import { Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RallyIcon } from "../components/RallyIcon";
 import { theme } from "../design/theme";
@@ -20,7 +20,7 @@ export function ProfileScreen() {
   const { configured, ensureAnonymousSession } = useAuth();
   const [activeProfile, setActiveProfile] = useState<LocalPlayerProfile | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [nameDraft, setNameDraft] = useState("");
 
   const activeAvatarUrl = useMemo(
@@ -182,43 +182,53 @@ export function ProfileScreen() {
         </Text>
       </View>
 
-      <View style={styles.profileHero}>
-        <Pressable
-          accessibilityLabel={activeProfile ? "Change profile photo" : "Add profile photo"}
-          accessibilityRole="button"
-          disabled={loading}
-          onPress={() => void handlePickProfileImage()}
-          style={({ pressed }) => [styles.avatarButton, pressed ? styles.avatarPressed : null]}
-        >
-          <View style={styles.avatarFrame}>
-            {activeAvatarUrl ? (
-              <Image source={{ uri: activeAvatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarInitials}>{initialsFor(activeProfile?.displayName)}</Text>
-            )}
-          </View>
-          <View style={styles.cameraBadge}>
-            <RallyIcon color={theme.color.action.primary} name="camera" size={theme.size.iconDefault} />
-          </View>
-        </Pressable>
-      </View>
+      {loading && !activeProfile ? <ActivityIndicator color={theme.color.action.primary} style={styles.loading} /> : null}
 
-      <View style={styles.formGroup}>
-        <Text style={styles.fieldLabel}>Display name</Text>
-        <TextInput
-          accessibilityLabel="Display name"
-          autoCapitalize="words"
-          editable={Boolean(activeProfile) && !loading}
-          onChangeText={setNameDraft}
-          onSubmitEditing={() => void handleDone()}
-          placeholder="Display name"
-          placeholderTextColor={theme.color.text.secondary}
-          returnKeyType="done"
-          selectionColor={theme.color.action.primary}
-          style={styles.nameInput}
-          value={nameDraft}
-        />
-      </View>
+      {!loading && !activeProfile ? (
+        <Text style={styles.emptyStateText}>Join a queue to access your profile settings</Text>
+      ) : null}
+
+      {activeProfile ? (
+        <>
+          <View style={styles.profileHero}>
+            <Pressable
+              accessibilityLabel="Change profile photo"
+              accessibilityRole="button"
+              disabled={loading}
+              onPress={() => void handlePickProfileImage()}
+              style={({ pressed }) => [styles.avatarButton, pressed ? styles.avatarPressed : null]}
+            >
+              <View style={styles.avatarFrame}>
+                {activeAvatarUrl ? (
+                  <Image source={{ uri: activeAvatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarInitials}>{initialsFor(activeProfile.displayName)}</Text>
+                )}
+              </View>
+              <View style={styles.cameraBadge}>
+                <RallyIcon color={theme.color.action.primary} name="camera" size={theme.size.iconDefault} />
+              </View>
+            </Pressable>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>Display name</Text>
+            <TextInput
+              accessibilityLabel="Display name"
+              autoCapitalize="words"
+              editable={!loading}
+              onChangeText={setNameDraft}
+              onSubmitEditing={() => void handleDone()}
+              placeholder="Display name"
+              placeholderTextColor={theme.color.text.secondary}
+              returnKeyType="done"
+              selectionColor={theme.color.action.primary}
+              style={styles.nameInput}
+              value={nameDraft}
+            />
+          </View>
+        </>
+      ) : null}
 
       {errorMessage ? (
         <Text accessibilityLiveRegion="polite" style={styles.errorText}>
@@ -321,6 +331,11 @@ const styles = StyleSheet.create({
     color: theme.color.feedback.error,
     marginTop: theme.space[12]
   },
+  emptyStateText: {
+    ...theme.type.bodyDefault,
+    color: theme.color.text.secondary,
+    marginTop: theme.space[40]
+  },
   fieldLabel: {
     ...theme.type.bodyDefault,
     color: theme.color.text.secondary
@@ -347,6 +362,9 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingHorizontal: theme.space[16],
     textAlignVertical: "center"
+  },
+  loading: {
+    marginTop: theme.space[40]
   },
   pageTitle: {
     ...theme.type.headingBrand,

@@ -77,7 +77,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setCourtCount(null);
       setCompletedMatches([]);
       setPlayers([]);
-      setErrorMessage("Join a league queue from Home.");
+      setErrorMessage("Join a league queue to view recommended matches");
       setLoading(false);
       return;
     }
@@ -205,7 +205,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       }
 
       if (needsLiveSession) {
-        setErrorMessage("Join a league queue from Home.");
+        setErrorMessage("Join a league queue to view recommended matches");
         return false;
       }
 

@@ -75,6 +75,8 @@ Auth behavior:
 - Guest queue entry uses Supabase anonymous sign-ins so players can join without entering email. Enable Anonymous sign-ins in Supabase Auth before testing join queue.
 - Profile image upload helpers live in `src/lib/profileImages.ts`.
 
+Shared play ownership is intentional. Players with phones may manage anonymous or no-phone players because many players leave their phones off-court and rely on others to manage the queue and matches for them.
+
 Core Supabase RPC flow:
 
 ```ts
