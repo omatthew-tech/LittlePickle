@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionButton } from "../components/ActionButton";
@@ -15,16 +15,15 @@ import {
 import { usePlaySession } from "../lib/usePlaySession";
 
 type PlayScreenProps = {
-  onSessionClosed?: () => void;
+  onSessionEnded?: () => void;
   sessionId?: string | null;
 };
 
-export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
+export function PlayScreen({ onSessionEnded, sessionId }: PlayScreenProps) {
   const insets = useSafeAreaInsets();
   const {
     activeMatches,
     canStartRecommendedMatch,
-    closeSession,
     completeActiveMatch,
     courtCount,
     errorMessage,
@@ -33,9 +32,16 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
     passRecommendedPlayer,
     recommendations,
     refresh,
+    sessionEnded,
     startRecommendedMatch
   } = usePlaySession(sessionId);
   const [scoreMatchId, setScoreMatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (sessionEnded) {
+      onSessionEnded?.();
+    }
+  }, [onSessionEnded, sessionEnded]);
 
   async function handlePassPlayer(matchId: string, playerId: string) {
     if (!live) {
@@ -68,26 +74,6 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
     const matchId = scoreMatchId;
     setScoreMatchId(null);
     await completeActiveMatch(matchId, teamOneScore, teamTwoScore);
-  }
-
-  function handleEndSession() {
-    Alert.alert("End session", "Close this play session?", [
-      {
-        text: "Cancel",
-        style: "cancel"
-      },
-      {
-        text: "End session",
-        style: "destructive",
-        onPress: () => {
-          void closeSession().then((closed) => {
-            if (closed) {
-              onSessionClosed?.();
-            }
-          });
-        }
-      }
-    ]);
   }
 
   const scoreMatch = activeMatches.find((match) => match.id === scoreMatchId) ?? null;
@@ -160,12 +146,6 @@ export function PlayScreen({ onSessionClosed, sessionId }: PlayScreenProps) {
             icon="history"
             label="Refresh recommendations"
             onPress={() => void refresh()}
-            variant="text"
-          />
-          <ActionButton
-            disabled={loading || activeMatches.length > 0}
-            label="End session"
-            onPress={handleEndSession}
             variant="text"
           />
         </View>

@@ -22,7 +22,6 @@ export type CreatePlayerInput = {
   organizationId: string;
   displayName: string;
   rating?: number;
-  userId: string | null;
 };
 
 export type CreateSessionQueuedPlayerInput = {
@@ -76,7 +75,6 @@ export type OrganizationPlayerSummary = {
   id: string;
   profile_image_path: string | null;
   rating: number;
-  user_id: string | null;
 };
 
 export type OrganizationOpenSessionSummary = {
@@ -86,12 +84,6 @@ export type OrganizationOpenSessionSummary = {
   current_round: number;
   id: string;
   started_at: string;
-};
-
-export type ClosedSessionSummary = {
-  ended_at: string | null;
-  id: string;
-  status: "open" | "closed";
 };
 
 export type MyProfile = {
@@ -112,7 +104,6 @@ export type LeagueCodeResult = {
 export type LeaguePlayerNameMatch = {
   created_at: string;
   display_name: string;
-  has_account: boolean;
   id: string;
   profile_image_path: string | null;
   rating: number;
@@ -224,8 +215,7 @@ export async function createPlayer(input: CreatePlayerInput) {
   return rpc<string>("create_player", {
     p_organization_id: input.organizationId,
     p_display_name: input.displayName,
-    p_rating: input.rating ?? 3,
-    p_user_id: input.userId
+    p_rating: input.rating ?? 3
   });
 }
 
@@ -263,12 +253,6 @@ export async function getOrCreateOpenPlaySession(organizationId: string, courtCo
 export async function getOrganizationOpenSessions(organizationId: string) {
   return rpc<OrganizationOpenSessionSummary[]>("organization_open_sessions", {
     p_organization_id: organizationId
-  });
-}
-
-export async function closePlaySession(sessionId: string) {
-  return rpc<ClosedSessionSummary>("close_play_session", {
-    p_session_id: sessionId
   });
 }
 

@@ -75,7 +75,7 @@ Auth behavior:
 - Guest queue entry uses Supabase anonymous sign-ins so players can join without entering email. Enable Anonymous sign-ins in Supabase Auth before testing join queue.
 - Profile image upload helpers live in `src/lib/profileImages.ts`.
 
-Shared play ownership is intentional. Players with phones may manage anonymous or no-phone players because many players leave their phones off-court and rely on others to manage the queue and matches for them.
+Shared play ownership is intentional. Players are never claimed by or linked to a device, so any number of devices may join as and manage the same player. This supports players who leave their phones off-court and rely on others to manage the queue and matches for them.
 
 Core Supabase RPC flow:
 
@@ -92,10 +92,8 @@ updateOrganizationSettings(...)
 setOrganizationMemberRole(...)
 createPlayer(...)
 updateOrganizationPlayer(...)
-ensureCurrentUserPlayer(...)
 createPlaySession(...)
 getOrganizationOpenSessions(...)
-closePlaySession(...)
 addPlayerToSession(...)
 removePlayerFromSession(...)
 getSessionPlayerOptions(...)
@@ -117,17 +115,19 @@ Live Play screen bridge:
 
 - If Supabase is not configured, Play uses bundled sample data.
 - If Supabase is configured, Play expects a live session selected from Home. `EXPO_PUBLIC_DEFAULT_SESSION_ID` is only a local-dev shortcut for loading one known session directly.
-- From Home, users can scan a league QR, search existing leagues, create a league, and enter Play with the selected session.
+- From Home, users can scan a league QR, search existing leagues, create a league, or view a league without joining. Viewing alone never changes membership; Join queue, Add, and Remove are explicit actions, and empty queues retain the full editable league roster.
 - Organization admins can update name, slug, court count, member roles, and roster players from Home.
-- Creating or joining an organization ensures the signed-in user has a player record for that organization.
-- Profile lets signed-in users update their display name and profile picture, and both sync to player rows and match cards.
+- Players are shared league records rather than auth-user-owned records; any device may select and manage the same player.
+- Profile edits and user switching update the locally selected shared player and flow through to queue and match cards.
 - If there are no active recommendations and `EXPO_PUBLIC_MATCH_FLOW_API_URL` is set, Play asks FastAPI to regenerate and store recommendations.
 - Starting a recommended match assigns the lowest open court, creates an active match, then refreshes active matches and recommendations only when another court is open.
+- Recommendations containing a player who has left the queue or is already in an active match are hidden. If no valid recommendations remain while a court is open, Play regenerates recommendations from the available players.
 - When every court is active, recommendation start buttons are disabled until a score is reported.
 - Reporting an active match score completes that match, advances the queue, and regenerates recommendations.
 - Match history reads completed matches and saved scores from Supabase.
 - Adding/removing a current player updates the session queue and refreshes recommendations.
-- Ending a play session closes it, removes it from Home resume options, and requires active matches to be completed first.
+- A play session closes automatically when its last active player leaves the queue, invalidates its recommendations, and returns the app from Play to Home.
+- Supabase Cron closes every remaining open session daily at 4:00 AM America/New_York; any match still active at that cutoff is cancelled.
 - The camera QR scanner resolves LittlePickle league QR values and opens the join queue.
 
 The Supabase migrations live at:

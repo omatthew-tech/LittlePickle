@@ -109,6 +109,21 @@ def main() -> None:
         )
         match_id = accepted["match_id"]
 
+        accepted_player_ids = {
+            player["player_id"]
+            for player in first_recommendation["players"]
+        }
+        remaining_recommendations = _rpc(
+            settings,
+            access_token,
+            "active_recommendations",
+            {"p_session_id": session_id},
+        )
+        _assert_recommendations_exclude_players(
+            remaining_recommendations,
+            accepted_player_ids,
+        )
+
         completed = _api_post(
             client,
             f"/matches/{match_id}/complete",
@@ -130,16 +145,72 @@ def main() -> None:
         )
         _assert_recommendations(passed, expected_count=3)
 
+        for player in players[:8]:
+            final_snapshot = _rpc(
+                settings,
+                access_token,
+                "remove_player_from_session",
+                {
+                    "p_session_id": session_id,
+                    "p_player_id": player["id"],
+                },
+            )
+
+        assert final_snapshot["session"]["status"] == "closed", (
+            "removing the final queued player must close the play session"
+        )
+        assert final_snapshot["players"] == []
+
+        empty_recommendations = _rpc(
+            settings,
+            access_token,
+            "active_recommendations",
+            {"p_session_id": session_id},
+        )
+        assert empty_recommendations["recommendations"] == [], (
+            "closed empty sessions must not expose recommendations"
+        )
+
+        open_sessions = _rpc(
+            settings,
+            access_token,
+            "organization_open_sessions",
+            {"p_organization_id": organization_id},
+        )
+        assert all(open_session["id"] != session_id for open_session in open_sessions)
+
+        reopened = _rpc(
+            settings,
+            access_token,
+            "join_league_queue",
+            {
+                "p_allow_duplicate_name": False,
+                "p_display_name": players[0]["display_name"],
+                "p_organization_id": organization_id,
+                "p_player_id": players[0]["id"],
+                "p_profile_image_path": None,
+            },
+        )
+        assert reopened["session_id"] != session_id, (
+            "adding the first player must create a new play session"
+        )
+
+        reopened_snapshot = _rpc(
+            settings,
+            access_token,
+            "remove_player_from_session",
+            {
+                "p_session_id": reopened["session_id"],
+                "p_player_id": players[0]["id"],
+            },
+        )
+        assert reopened_snapshot["session"]["status"] == "closed"
+
         print(
             "live smoke checks passed: "
             f"organization={organization_id} session={session_id}"
         )
     finally:
-        if session_id:
-            try:
-                _rpc(settings, access_token, "close_play_session", {"p_session_id": session_id})
-            except Exception as error:
-                print(f"warning: could not close live smoke session: {error}")
         if organization_id:
             try:
                 _delete_organization(settings, organization_id)
@@ -287,6 +358,20 @@ def _assert_recommendations(response: dict[str, Any], expected_count: int) -> No
     assert response["recommendation_count"] == expected_count
     assert len(response["recommendations"]) == expected_count
     assert response["recommendations"][0]["id"], "stored recommendation id missing"
+
+
+def _assert_recommendations_exclude_players(
+    response: dict[str, Any],
+    excluded_player_ids: set[str],
+) -> None:
+    for recommendation in response["recommendations"]:
+        recommended_player_ids = {
+            player["player_id"]
+            for player in recommendation["players"]
+        }
+        assert recommended_player_ids.isdisjoint(excluded_player_ids), (
+            "active match players must not appear in remaining recommendations"
+        )
 
 
 def _raise_for_response(response: httpx.Response, label: str) -> None:

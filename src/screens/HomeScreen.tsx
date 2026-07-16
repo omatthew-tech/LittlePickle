@@ -23,6 +23,7 @@ import { theme } from "../design/theme";
 import { useAuth } from "../lib/auth";
 import { leagueQrValue, parseLeagueQrValue } from "../lib/leagueCodes";
 import {
+  addPlayerToSession,
   createLeague,
   createPlayer,
   getLeagueByCode,
@@ -540,6 +541,7 @@ export function HomeScreen({
       }
 
       const sessionId = await resolveOpenQueueSession(profile.leagueId, organization?.number_of_courts);
+      await addPlayerToSession(sessionId, profile.playerId);
       const savedProfile = await saveLocalGuestLeagueProfile({
         avatarPath: profile.avatarPath ?? null,
         displayName: profile.displayName,
@@ -563,6 +565,18 @@ export function HomeScreen({
     }
   }
 
+  async function viewQueueForOrganization(organization: OrganizationSummary) {
+    await viewQueueForSavedLeague({
+      leagueId: organization.id,
+      leagueName: organization.name,
+      locationText: organization.location_text ?? null,
+      numberOfCourts: organization.number_of_courts,
+      sessionId: null,
+      slug: organization.slug,
+      updatedAt: new Date().toISOString()
+    });
+  }
+
   async function viewQueueForSavedLeague(league: LocalPlayedLeague) {
     if (!configured) {
       setErrorMessage("Live league queue needs Supabase settings.");
@@ -576,13 +590,7 @@ export function HomeScreen({
     try {
       const activeProfile = await getActiveLocalPlayerProfile();
       const matchingProfile = activeProfile?.leagueId === league.leagueId ? activeProfile : null;
-      const openSessionId = await readOpenQueueSession(league.leagueId);
-      const sessionId = openSessionId ?? league.sessionId ?? matchingProfile?.sessionId ?? null;
-
-      if (!sessionId) {
-        setErrorMessage("This league does not have a queue to view yet.");
-        return;
-      }
+      const sessionId = await readOpenQueueSession(league.leagueId);
 
       await saveLocalPlayedLeague({
         leagueId: league.leagueId,
@@ -599,18 +607,59 @@ export function HomeScreen({
       onQueueProfileChanged({
         avatarPath: matchingProfile?.avatarPath ?? null,
         displayName: matchingProfile?.displayName ?? "Player",
+        leagueId: league.leagueId,
+        leagueLocationText: league.locationText ?? null,
         leagueName: league.leagueName,
+        leagueNumberOfCourts: league.numberOfCourts ?? null,
+        leagueSlug: league.slug ?? null,
         playerId: matchingProfile?.playerId ?? "",
         rating: matchingProfile?.rating ?? null,
         readOnly: true,
         sessionId
       });
-      onSessionSelected(sessionId);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not view the league queue.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function joinViewedQueue(profile: LeagueQueueProfile) {
+    onQueueProfileChanged(null);
+    await startJoinForLeague({
+      id: profile.leagueId,
+      location_text: profile.leagueLocationText ?? null,
+      name: profile.leagueName,
+      number_of_courts: profile.leagueNumberOfCourts ?? 1,
+      slug: profile.leagueSlug ?? profile.leagueId
+    });
+  }
+
+  async function addViewedPlayerToQueue(
+    profile: LeagueQueueProfile,
+    playerId: string | null,
+    displayName: string
+  ) {
+    if (!configured) {
+      throw new Error("Live league queue needs Supabase settings.");
+    }
+
+    if (!session) {
+      await ensureAnonymousSession();
+    }
+
+    const joined = await joinLeagueQueue({
+      displayName,
+      organizationId: profile.leagueId,
+      playerId
+    });
+
+    onQueueProfileChanged({
+      ...profile,
+      sessionId: joined.session_id
+    });
+    await loadHomeData();
+    return true;
   }
 
   async function readOpenQueueSession(organizationId: string) {
@@ -893,8 +942,7 @@ export function HomeScreen({
       await createPlayer({
         displayName: draftPlayer.displayName.trim(),
         organizationId: organization.id,
-        rating: parsedRating,
-        userId: null
+        rating: parsedRating
       });
       setPlayerDrafts((previousDrafts) => ({
         ...previousDrafts,
@@ -1053,7 +1101,7 @@ export function HomeScreen({
                   <ActionButton
                     disabled={loading}
                     label="View"
-                    onPress={() => void enterLeague(organization)}
+                    onPress={() => void viewQueueForOrganization(organization)}
                     variant="text"
                   />
                 </View>
@@ -1282,15 +1330,26 @@ export function HomeScreen({
   if (activeQueueProfile) {
     return (
       <LeagueQueueScreen
+        onAddPlayerToQueue={(playerId, displayName) =>
+          addViewedPlayerToQueue(activeQueueProfile, playerId, displayName)
+        }
         onBack={() => {
           onQueueProfileChanged(null);
           void loadHomeData();
         }}
+        onJoinQueue={() => joinViewedQueue(activeQueueProfile)}
         onLeftQueue={() => {
           onQueueProfileChanged(null);
           void loadHomeData();
         }}
         onQueueMembershipChanged={() => {
+          void loadHomeData();
+        }}
+        onViewedQueueEnded={() => {
+          onQueueProfileChanged({
+            ...activeQueueProfile,
+            sessionId: null
+          });
           void loadHomeData();
         }}
         profile={activeQueueProfile}

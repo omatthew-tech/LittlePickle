@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { currentPlayers as samplePlayers, recommendedMatches as sampleRecommendations, type Player } from "../data/sampleClub";
 import {
   addPlayerToSession,
-  closePlaySession,
   createSessionQueuedPlayer,
   getActiveMatches,
   getActiveRecommendations,
   getCompletedMatches,
   getSessionPlayerOptions,
   getSessionRecommendationSnapshot,
-  removePlayerFromSession
+  removePlayerFromSession,
+  searchLeaguePlayerNames,
+  type LeaguePlayerNameMatch
 } from "./littlePickleData";
 import {
   acceptRecommendation,
@@ -40,34 +41,45 @@ type PlaySessionState = {
   canStartRecommendedMatch: boolean;
   completedMatches: CompletedMatch[];
   completeActiveMatch: (matchId: string, teamOneScore: number, teamTwoScore: number) => Promise<void>;
-  closeSession: () => Promise<boolean>;
   courtCount: number | null;
   live: boolean;
   loading: boolean;
   players: Player[];
   recommendations: MatchRecommendation[];
   refresh: () => Promise<void>;
+  sessionEnded: boolean;
   setPlayerInSession: (playerId: string, inSession: boolean) => Promise<boolean>;
   startRecommendedMatch: (recommendationId: string) => Promise<void>;
   passRecommendedPlayer: (recommendationId: string, playerId: string) => Promise<void>;
 };
 
 type UsePlaySessionOptions = {
+  allowMissingSession?: boolean;
+  canManageRoster?: boolean;
+  leagueId?: string | null;
   readOnly?: boolean;
 };
 
 export function usePlaySession(sessionId?: string | null, options: UsePlaySessionOptions = {}): PlaySessionState {
-  const resolvedSessionId = sessionId ?? defaultSessionId ?? null;
+  const allowMissingSession = Boolean(options.allowMissingSession);
+  const canManageRoster = Boolean(options.canManageRoster);
+  const leagueId = options.leagueId ?? null;
+  const resolvedSessionId = allowMissingSession ? sessionId ?? null : sessionId ?? defaultSessionId ?? null;
   const readOnly = Boolean(options.readOnly);
   const liveEnabled = Boolean(isSupabaseConfigured && resolvedSessionId);
   const needsLiveSession = Boolean(isSupabaseConfigured && !resolvedSessionId);
-  const [loading, setLoading] = useState(liveEnabled);
+  const [loading, setLoading] = useState(
+    liveEnabled || Boolean(needsLiveSession && allowMissingSession && leagueId)
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeMatches, setActiveMatches] = useState<ActiveMatch[]>([]);
   const [courtCount, setCourtCount] = useState<number | null>(null);
   const [completedMatches, setCompletedMatches] = useState<CompletedMatch[]>([]);
-  const [recommendations, setRecommendations] = useState<MatchRecommendation[]>(sampleRecommendations);
-  const [players, setPlayers] = useState<Player[]>(samplePlayers);
+  const [recommendations, setRecommendations] = useState<MatchRecommendation[]>(
+    liveEnabled || needsLiveSession ? [] : sampleRecommendations
+  );
+  const [players, setPlayers] = useState<Player[]>(liveEnabled || needsLiveSession ? [] : samplePlayers);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const canStartRecommendedMatch = !liveEnabled || courtCount === null || activeMatches.length < courtCount;
 
   const refresh = useCallback(async () => {
@@ -77,8 +89,26 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setCourtCount(null);
       setCompletedMatches([]);
       setPlayers([]);
-      setErrorMessage("Join a league queue to view recommended matches");
-      setLoading(false);
+      setSessionEnded(false);
+
+      if (!allowMissingSession || !leagueId) {
+        setErrorMessage("Join a league queue to view recommended matches");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setErrorMessage(null);
+
+      try {
+        const leaguePlayers = await searchLeaguePlayerNames(leagueId, "");
+        setPlayers(leaguePlayers.map(playerFromLeagueMatch));
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Could not load league players.");
+      } finally {
+        setLoading(false);
+      }
+
       return;
     }
 
@@ -88,6 +118,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setCourtCount(null);
       setCompletedMatches([]);
       setPlayers(samplePlayers);
+      setSessionEnded(false);
       setLoading(false);
       return;
     }
@@ -105,6 +136,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setCourtCount(sessionData.courtCount);
       setCompletedMatches(sessionData.completed.matches);
       setPlayers(sessionData.playerOptions.length > 0 ? sessionData.playerOptions.map(playerFromOption) : sessionData.snapshot.players.map(playerFromSnapshot));
+      setSessionEnded(sessionData.sessionEnded);
       setErrorMessage(sessionData.warningMessage);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not load play session.");
@@ -113,10 +145,11 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setCourtCount(null);
       setCompletedMatches([]);
       setPlayers([]);
+      setSessionEnded(false);
     } finally {
       setLoading(false);
     }
-  }, [liveEnabled, needsLiveSession, readOnly, resolvedSessionId, matchFlowApiConfigKey]);
+  }, [allowMissingSession, leagueId, liveEnabled, needsLiveSession, readOnly, resolvedSessionId, matchFlowApiConfigKey]);
 
   const passRecommendedPlayer = useCallback(
     async (recommendationId: string, playerId: string) => {
@@ -156,7 +189,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
 
   const setPlayerInSession = useCallback(
     async (playerId: string, inSession: boolean) => {
-      if (readOnly) {
+      if (readOnly && !canManageRoster) {
         setErrorMessage("This queue is view only.");
         return false;
       }
@@ -184,7 +217,8 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
           setCourtCount,
           setCompletedMatches,
           setPlayers,
-          setRecommendations
+          setRecommendations,
+          setSessionEnded
         });
         return true;
       } catch (error) {
@@ -192,7 +226,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
         return false;
       }
     },
-    [liveEnabled, readOnly, resolvedSessionId]
+    [canManageRoster, liveEnabled, readOnly, resolvedSessionId]
   );
 
   const addNewPlayerToSession = useCallback(
@@ -209,7 +243,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
         return false;
       }
 
-      if (readOnly) {
+      if (readOnly && !canManageRoster) {
         setErrorMessage("This queue is view only.");
         return false;
       }
@@ -233,7 +267,8 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
           setCourtCount,
           setCompletedMatches,
           setPlayers,
-          setRecommendations
+          setRecommendations,
+          setSessionEnded
         });
         return true;
       } catch (error) {
@@ -243,7 +278,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
         setLoading(false);
       }
     },
-    [liveEnabled, needsLiveSession, readOnly, resolvedSessionId]
+    [canManageRoster, liveEnabled, needsLiveSession, readOnly, resolvedSessionId]
   );
 
   const startRecommendedMatch = useCallback(
@@ -271,12 +306,25 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
 
       try {
         await acceptRecommendation(recommendationId);
+        const startedRecommendation = recommendations.find(
+          (recommendation) => recommendation.id === recommendationId
+        );
+
+        if (startedRecommendation) {
+          const startedPlayerIds = new Set(
+            startedRecommendation.players.map((player) => player.player_id)
+          );
+          setRecommendations((previousRecommendations) =>
+            recommendationsExcludingPlayerIds(previousRecommendations, startedPlayerIds)
+          );
+        }
+
         await refresh();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Could not start match.");
       }
     },
-    [activeMatches.length, courtCount, liveEnabled, readOnly, refresh, resolvedSessionId]
+    [activeMatches.length, courtCount, liveEnabled, readOnly, recommendations, refresh, resolvedSessionId]
   );
 
   const completeActiveMatch = useCallback(
@@ -320,35 +368,6 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
     [liveEnabled, readOnly, resolvedSessionId]
   );
 
-  const closeSession = useCallback(async () => {
-    if (!liveEnabled || !resolvedSessionId) {
-      return false;
-    }
-
-    if (readOnly) {
-      setErrorMessage("This queue is view only.");
-      return false;
-    }
-
-    setLoading(true);
-    setErrorMessage(null);
-
-    try {
-      await closePlaySession(resolvedSessionId);
-      setActiveMatches([]);
-      setCourtCount(null);
-      setCompletedMatches([]);
-      setRecommendations([]);
-      setPlayers([]);
-      return true;
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not close session.");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [liveEnabled, readOnly, resolvedSessionId]);
-
   useEffect(() => {
     setErrorMessage(null);
     void refresh();
@@ -359,7 +378,6 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       activeMatches,
       addNewPlayerToSession,
       canStartRecommendedMatch,
-      closeSession,
       completedMatches,
       completeActiveMatch,
       courtCount,
@@ -370,6 +388,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       players,
       recommendations,
       refresh,
+      sessionEnded,
       setPlayerInSession,
       startRecommendedMatch
     }),
@@ -377,7 +396,6 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       activeMatches,
       addNewPlayerToSession,
       canStartRecommendedMatch,
-      closeSession,
       completedMatches,
       completeActiveMatch,
       courtCount,
@@ -388,6 +406,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       players,
       recommendations,
       refresh,
+      sessionEnded,
       setPlayerInSession,
       startRecommendedMatch
     ]
@@ -400,6 +419,7 @@ type RosterSetters = {
   setCompletedMatches: (matches: CompletedMatch[]) => void;
   setPlayers: (players: Player[]) => void;
   setRecommendations: (recommendations: MatchRecommendation[]) => void;
+  setSessionEnded: (sessionEnded: boolean) => void;
 };
 
 async function reloadAfterRosterChange(sessionId: string, setters: RosterSetters) {
@@ -412,6 +432,7 @@ async function reloadAfterRosterChange(sessionId: string, setters: RosterSetters
   setters.setCourtCount(sessionData.courtCount);
   setters.setCompletedMatches(sessionData.completed.matches);
   setters.setPlayers(sessionData.playerOptions.length > 0 ? sessionData.playerOptions.map(playerFromOption) : sessionData.snapshot.players.map(playerFromSnapshot));
+  setters.setSessionEnded(sessionData.sessionEnded);
 }
 
 type LoadedSessionData = {
@@ -420,6 +441,7 @@ type LoadedSessionData = {
   matches: Awaited<ReturnType<typeof getActiveMatches>>;
   playerOptions: SessionPlayerOption[];
   recommendationResponse: RecommendationResponse;
+  sessionEnded: boolean;
   snapshot: RecommendationSnapshot;
   warningMessage: string | null;
 };
@@ -437,10 +459,31 @@ async function loadSessionData(
   ]);
 
   const courtCount = snapshot.organization.number_of_courts;
+  const sessionEnded =
+    snapshot.session.status !== "open" ||
+    !playerOptions.some((player) => player.in_session);
+
+  if (sessionEnded) {
+    return {
+      completed,
+      courtCount,
+      matches,
+      playerOptions,
+      recommendationResponse: emptyRecommendationResponse(activeRecommendations),
+      sessionEnded: true,
+      snapshot,
+      warningMessage: null
+    };
+  }
+
   const hasOpenCourt = matches.matches.length < courtCount;
+  const availableRecommendations = recommendationsWithoutActivePlayers(
+    activeRecommendations,
+    matches.matches
+  );
 
   if (
-    activeRecommendations.recommendations.length > 0 ||
+    availableRecommendations.recommendations.length > 0 ||
     !options.regenerateRecommendations ||
     !isMatchFlowApiConfigured ||
     !hasOpenCourt
@@ -450,7 +493,8 @@ async function loadSessionData(
       courtCount,
       matches,
       playerOptions,
-      recommendationResponse: activeRecommendations,
+      recommendationResponse: availableRecommendations,
+      sessionEnded: false,
       snapshot,
       warningMessage: null
     };
@@ -464,7 +508,11 @@ async function loadSessionData(
       courtCount,
       matches,
       playerOptions,
-      recommendationResponse: regeneratedRecommendations,
+      recommendationResponse: recommendationsWithoutActivePlayers(
+        regeneratedRecommendations,
+        matches.matches
+      ),
+      sessionEnded: false,
       snapshot,
       warningMessage: null
     };
@@ -474,11 +522,50 @@ async function loadSessionData(
       courtCount,
       matches,
       playerOptions,
-      recommendationResponse: activeRecommendations,
+      recommendationResponse: availableRecommendations,
+      sessionEnded: false,
       snapshot,
       warningMessage: error instanceof Error ? error.message : "Could not refresh recommended matches."
     };
   }
+}
+
+function emptyRecommendationResponse(response: RecommendationResponse): RecommendationResponse {
+  return {
+    ...response,
+    batch_id: null,
+    recommendations: []
+  };
+}
+
+function recommendationsWithoutActivePlayers(
+  response: RecommendationResponse,
+  activeMatches: ActiveMatch[]
+): RecommendationResponse {
+  const activePlayerIds = new Set(
+    activeMatches.flatMap((match) => match.players.map((player) => player.player_id))
+  );
+
+  if (activePlayerIds.size === 0) {
+    return response;
+  }
+
+  return {
+    ...response,
+    recommendations: recommendationsExcludingPlayerIds(
+      response.recommendations,
+      activePlayerIds
+    )
+  };
+}
+
+function recommendationsExcludingPlayerIds(
+  recommendations: MatchRecommendation[],
+  excludedPlayerIds: Set<string>
+) {
+  return recommendations.filter((recommendation) =>
+    recommendation.players.every((player) => !excludedPlayerIds.has(player.player_id))
+  );
 }
 
 function playerFromSnapshot(player: PlayerSnapshot): Player {
@@ -507,6 +594,21 @@ function playerFromOption(player: SessionPlayerOption): Player {
     queuePosition: player.queue_position,
     roundsWaiting: player.rounds_waiting,
     skill: player.skill
+  };
+}
+
+function playerFromLeagueMatch(player: LeaguePlayerNameMatch): Player {
+  return {
+    avatarUrl: player.profile_image_path ? publicProfileImageUrl(player.profile_image_path) : null,
+    gamesPlayed: 0,
+    id: player.id,
+    inSession: false,
+    initials: initialsFor(player.display_name),
+    isPlaying: false,
+    name: player.display_name,
+    queuePosition: null,
+    roundsWaiting: 0,
+    skill: player.rating
   };
 }
 

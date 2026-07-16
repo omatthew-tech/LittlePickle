@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CurrentPlayersSection } from "../components/CurrentPlayersSection";
@@ -13,32 +13,54 @@ const estimatedMinutesPerMatch = 8;
 export type LeagueQueueProfile = {
   avatarPath?: string | null;
   displayName: string;
+  leagueId: string;
+  leagueLocationText?: string | null;
   leagueName: string;
+  leagueNumberOfCourts?: number | null;
+  leagueSlug?: string | null;
   playerId: string;
   rating?: number | null;
   readOnly?: boolean;
-  sessionId: string;
+  sessionId?: string | null;
 };
 
 type LeagueQueueScreenProps = {
+  onAddPlayerToQueue: (playerId: string | null, displayName: string) => Promise<boolean>;
   onBack: () => void;
+  onJoinQueue: () => Promise<void> | void;
   onLeftQueue: () => void;
   onQueueMembershipChanged: () => void;
+  onViewedQueueEnded: () => void;
   profile: LeagueQueueProfile;
 };
 
-export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChanged, profile }: LeagueQueueScreenProps) {
+export function LeagueQueueScreen({
+  onAddPlayerToQueue,
+  onBack,
+  onJoinQueue,
+  onLeftQueue,
+  onQueueMembershipChanged,
+  onViewedQueueEnded,
+  profile
+}: LeagueQueueScreenProps) {
   const insets = useSafeAreaInsets();
   const readOnly = Boolean(profile.readOnly);
   const {
     activeMatches,
-    addNewPlayerToSession,
+    addNewPlayerToSession: addNewPlayerToExistingSession,
     errorMessage,
     live,
     loading,
     players,
-    setPlayerInSession
-  } = usePlaySession(profile.sessionId, { readOnly });
+    sessionEnded,
+    setPlayerInSession: setPlayerInExistingSession
+  } = usePlaySession(profile.sessionId, {
+    allowMissingSession: readOnly,
+    canManageRoster: true,
+    leagueId: profile.leagueId,
+    readOnly
+  });
+  const [rosterError, setRosterError] = useState<string | null>(null);
   const [updatingMembership, setUpdatingMembership] = useState(false);
   const queuedPlayer = useMemo(
     () => players.find((player) => player.id === profile.playerId) ?? null,
@@ -51,11 +73,73 @@ export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChange
   const upAfter = loading && !queuedPlayer ? "--" : isQueued ? upAfterLabel(queuedPlayer, activeMatches.length) : "--";
   const membershipActionLabel = isQueued ? "Leave queue" : "Join queue";
 
+  useEffect(() => {
+    if (!sessionEnded) {
+      return;
+    }
+
+    if (readOnly && profile.sessionId) {
+      onViewedQueueEnded();
+      return;
+    }
+
+    if (!readOnly) {
+      onLeftQueue();
+    }
+  }, [onLeftQueue, onViewedQueueEnded, profile.sessionId, readOnly, sessionEnded]);
+
+  async function handleRosterMembership(playerId: string, inSession: boolean) {
+    setRosterError(null);
+
+    try {
+      if (profile.sessionId) {
+        return await setPlayerInExistingSession(playerId, inSession);
+      }
+
+      if (!inSession) {
+        return false;
+      }
+
+      const player = players.find((candidate) => candidate.id === playerId);
+
+      if (!player) {
+        return false;
+      }
+
+      return await onAddPlayerToQueue(player.id, player.name);
+    } catch (error) {
+      setRosterError(error instanceof Error ? error.message : "Could not update the queue.");
+      return false;
+    }
+  }
+
+  async function handleAddNewPlayer(displayName: string) {
+    setRosterError(null);
+
+    try {
+      if (profile.sessionId) {
+        return await addNewPlayerToExistingSession(displayName);
+      }
+
+      return await onAddPlayerToQueue(null, displayName);
+    } catch (error) {
+      setRosterError(error instanceof Error ? error.message : "Could not add the player.");
+      return false;
+    }
+  }
+
   async function handleQueueMembership() {
+    if (readOnly) {
+      setUpdatingMembership(true);
+      await onJoinQueue();
+      setUpdatingMembership(false);
+      return;
+    }
+
     const nextInSession = !isQueued;
 
     setUpdatingMembership(true);
-    const updated = await setPlayerInSession(profile.playerId, nextInSession);
+    const updated = await setPlayerInExistingSession(profile.playerId, nextInSession);
     setUpdatingMembership(false);
 
     if (!updated) {
@@ -106,20 +190,18 @@ export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChange
           <Text numberOfLines={2} style={styles.queueName}>
             {displayName}
           </Text>
-          {!readOnly ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={updatingMembership || loading}
-              onPress={() => void handleQueueMembership()}
-              style={({ pressed }) => [
-                styles.queueAction,
-                pressed ? styles.queueActionPressed : null,
-                updatingMembership || loading ? styles.queueActionDisabled : null
-              ]}
-            >
-              <Text style={styles.queueActionText}>{membershipActionLabel}</Text>
-            </Pressable>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            disabled={updatingMembership || loading}
+            onPress={() => void handleQueueMembership()}
+            style={({ pressed }) => [
+              styles.queueAction,
+              pressed ? styles.queueActionPressed : null,
+              updatingMembership || loading ? styles.queueActionDisabled : null
+            ]}
+          >
+            <Text style={styles.queueActionText}>{readOnly ? "Join queue" : membershipActionLabel}</Text>
+          </Pressable>
         </View>
         <View style={styles.queueDivider} />
         <View style={styles.queueStats}>
@@ -135,14 +217,19 @@ export function LeagueQueueScreen({ onBack, onLeftQueue, onQueueMembershipChange
           {errorMessage}
         </Text>
       ) : null}
+      {rosterError ? (
+        <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+          {rosterError}
+        </Text>
+      ) : null}
       {loading ? <ActivityIndicator color={theme.color.action.primary} style={styles.loading} /> : null}
       <CurrentPlayersSection
-        addNewPlayerToSession={addNewPlayerToSession}
+        addNewPlayerToSession={handleAddNewPlayer}
         live={live}
         loading={loading}
         players={players}
-        readOnly={readOnly}
-        setPlayerInSession={setPlayerInSession}
+        readOnly={false}
+        setPlayerInSession={handleRosterMembership}
       />
     </ScrollView>
   );

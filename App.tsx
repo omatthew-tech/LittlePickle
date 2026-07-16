@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BottomNavigation } from "./src/components/BottomNavigation";
 import { type Destination, theme } from "./src/design/theme";
 import { AuthProvider } from "./src/lib/auth";
+import type { LocalPlayerProfile } from "./src/lib/localGuestProfile";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import type { LeagueQueueProfile } from "./src/screens/LeagueQueueScreen";
 import { PlayScreen } from "./src/screens/PlayScreen";
@@ -31,6 +32,31 @@ function AppShell() {
     setActiveDestination(destination);
   }, []);
 
+  const handleActivePlayerProfileChanged = useCallback((profile: LocalPlayerProfile) => {
+    if (!profile.sessionId) {
+      setActiveQueueProfile(null);
+      return;
+    }
+
+    setActiveSessionId(profile.sessionId);
+    setActiveQueueProfile({
+      avatarPath: profile.avatarPath ?? null,
+      displayName: profile.displayName,
+      leagueId: profile.leagueId,
+      leagueName: profile.leagueName,
+      playerId: profile.playerId,
+      rating: profile.rating ?? null,
+      sessionId: profile.sessionId
+    });
+  }, []);
+
+  const handleSessionEnded = useCallback(() => {
+    setActiveSessionId(null);
+    setActiveQueueProfile(null);
+    setHomeVisitKey((previousKey) => previousKey + 1);
+    setActiveDestination("home");
+  }, []);
+
   return (
     <SafeAreaProvider>
       <View style={styles.app}>
@@ -46,16 +72,11 @@ function AppShell() {
           />
         ) : null}
         {activeDestination === "play" ? (
-          <PlayScreen
-            onSessionClosed={() => {
-              setActiveSessionId(null);
-              setActiveQueueProfile(null);
-              setActiveDestination("home");
-            }}
-            sessionId={activeSessionId}
-          />
+          <PlayScreen onSessionEnded={handleSessionEnded} sessionId={activeSessionId} />
         ) : null}
-        {activeDestination === "profile" ? <ProfileScreen /> : null}
+        {activeDestination === "profile" ? (
+          <ProfileScreen onActiveProfileChanged={handleActivePlayerProfileChanged} />
+        ) : null}
         <BottomNavigation activeDestination={activeDestination} onDestinationChanged={handleDestinationChanged} />
       </View>
     </SafeAreaProvider>
