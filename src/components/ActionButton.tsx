@@ -37,6 +37,7 @@ export function ActionButton({
         isPrimary ? styles.primary : styles.text,
         isPickleLeaf ? styles.pickleLeaf : null,
         pressed && isPrimary ? (isPickleLeaf ? styles.pickleLeafPressed : styles.primaryPressed) : null,
+        pressed && !isPrimary ? styles.textPressed : null,
         disabled ? (isPrimary ? styles.primaryDisabled : styles.textDisabled) : null,
         style
       ]}
@@ -124,5 +125,8 @@ const styles = StyleSheet.create({
   },
   textDisabled: {
     opacity: 1
+  },
+  textPressed: {
+    backgroundColor: theme.color.surface.card
   }
 });

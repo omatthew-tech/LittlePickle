@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActionButton } from "../components/ActionButton";
+import { CustomScoreModal } from "../components/CustomScoreModal";
 import { MatchCard } from "../components/MatchCard";
+import { MatchHistoryModal } from "../components/MatchHistoryModal";
 import { ScoreReportModal } from "../components/ScoreReportModal";
 import { theme } from "../design/theme";
 import {
@@ -25,17 +28,20 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
   const {
     activeMatches,
     canStartRecommendedMatch,
+    completedMatches,
     completeActiveMatch,
-    courtCount,
     errorMessage,
     live,
     loading,
     passRecommendedPlayer,
     players,
     recommendations,
+    refresh,
     sessionEnded,
     startRecommendedMatch
   } = usePlaySession(sessionId);
+  const [customScoreOpen, setCustomScoreOpen] = useState(false);
+  const [matchHistoryOpen, setMatchHistoryOpen] = useState(false);
   const [scoreMatchId, setScoreMatchId] = useState<string | null>(null);
   const displayNamesByPlayerId = useMemo(
     () => playerDisplayNames(players, currentPlayerId),
@@ -86,6 +92,16 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     await completeActiveMatch(matchId, teamOneScore, teamTwoScore);
   }
 
+  function handleSelectCustomScoreMatch(matchId: string) {
+    setCustomScoreOpen(false);
+    setScoreMatchId(matchId);
+  }
+
+  function handleOpenMatchHistory() {
+    setMatchHistoryOpen(true);
+    void refresh();
+  }
+
   return (
     <ScrollView
       contentContainerStyle={[
@@ -100,11 +116,24 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
       <Text accessibilityRole="header" style={styles.pageTitle}>
         Recommended matches
       </Text>
-      {live && courtCount ? (
-        <Text style={styles.sessionMeta}>
-          {activeMatches.length}/{courtCount} courts active
-        </Text>
-      ) : null}
+      <View accessibilityLabel="Play actions" style={styles.quickActions}>
+        <ActionButton
+          accessibilityLabel="Enter a custom score"
+          icon="score"
+          label="Custom score"
+          onPress={() => setCustomScoreOpen(true)}
+          style={styles.quickAction}
+          variant="text"
+        />
+        <View accessibilityElementsHidden importantForAccessibility="no" style={styles.quickActionDivider} />
+        <ActionButton
+          icon="history"
+          label="Match history"
+          onPress={handleOpenMatchHistory}
+          style={styles.quickAction}
+          variant="text"
+        />
+      </View>
       {errorMessage ? (
         <Text accessibilityLiveRegion="polite" style={styles.errorText}>
           {errorMessage}
@@ -147,6 +176,17 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
           visible
         />
       ) : null}
+      <CustomScoreModal
+        matches={activeMatches}
+        onClose={() => setCustomScoreOpen(false)}
+        onSelectMatch={handleSelectCustomScoreMatch}
+        visible={customScoreOpen}
+      />
+      <MatchHistoryModal
+        matches={completedMatches}
+        onClose={() => setMatchHistoryOpen(false)}
+        visible={matchHistoryOpen}
+      />
     </ScrollView>
   );
 }
@@ -174,15 +214,28 @@ const styles = StyleSheet.create({
   },
   matchList: {
     gap: theme.layout.stackCompact,
-    marginTop: theme.layout.stackDefault
+    marginTop: theme.layout.sectionGap
   },
   pageTitle: {
     ...theme.type.headingPage,
     color: theme.color.text.primary
   },
-  sessionMeta: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.secondary,
-    marginTop: theme.space[4]
+  quickAction: {
+    flex: 1,
+    minHeight: theme.size.navigationBottomHeight,
+    paddingHorizontal: theme.space[8]
+  },
+  quickActionDivider: {
+    alignSelf: "center",
+    backgroundColor: theme.color.border.subtle,
+    height: theme.space[40],
+    width: theme.border.quiet
+  },
+  quickActions: {
+    backgroundColor: theme.color.surface.info,
+    borderRadius: theme.radius.control,
+    flexDirection: "row",
+    marginTop: theme.layout.sectionGap,
+    overflow: "hidden"
   }
 });
