@@ -4,7 +4,7 @@ import asyncio
 from uuid import UUID
 
 from app.config import Settings
-from app.models import CompleteMatchRequest, PassPlayerRequest, RecommendationResponse
+from app.models import CustomMatchRequest, CompleteMatchRequest, PassPlayerRequest, RecommendationResponse
 from app.supabase_gateway import SupabaseGateway
 
 
@@ -107,6 +107,24 @@ def test_user_commands_call_expected_rpc_payloads():
             "user-token",
         )
     )
+    custom_match_id, custom_snapshot = asyncio.run(
+        gateway.complete_custom_match(
+            UUID("00000000-0000-0000-0000-000000000333"),
+            CustomMatchRequest(
+                team_one_player_ids=[
+                    UUID("00000000-0000-0000-0000-000000000011"),
+                    UUID("00000000-0000-0000-0000-000000000012"),
+                ],
+                team_two_player_ids=[
+                    UUID("00000000-0000-0000-0000-000000000013"),
+                    UUID("00000000-0000-0000-0000-000000000014"),
+                ],
+                team_one_score=11,
+                team_two_score=9,
+            ),
+            "user-token",
+        )
+    )
     asyncio.run(
         gateway.accept_recommendation(
             UUID("00000000-0000-0000-0000-000000000555"),
@@ -115,6 +133,8 @@ def test_user_commands_call_expected_rpc_payloads():
         )
     )
 
+    assert custom_match_id == UUID("00000000-0000-0000-0000-000000000999")
+    assert custom_snapshot.session.id == "sample-session"
     assert gateway.user_calls == [
         (
             "complete_match_for_recommendations",
@@ -131,6 +151,19 @@ def test_user_commands_call_expected_rpc_payloads():
                 "p_session_id": "00000000-0000-0000-0000-000000000333",
                 "p_player_id": "00000000-0000-0000-0000-000000000444",
                 "p_recommendation_id": "00000000-0000-0000-0000-000000000222",
+            },
+            "user-token",
+        ),
+        (
+            "complete_custom_match_for_recommendations",
+            {
+                "p_session_id": "00000000-0000-0000-0000-000000000333",
+                "p_team_one_player_one_id": "00000000-0000-0000-0000-000000000011",
+                "p_team_one_player_two_id": "00000000-0000-0000-0000-000000000012",
+                "p_team_two_player_one_id": "00000000-0000-0000-0000-000000000013",
+                "p_team_two_player_two_id": "00000000-0000-0000-0000-000000000014",
+                "p_team_one_score": 11,
+                "p_team_two_score": 9,
             },
             "user-token",
         ),
@@ -174,6 +207,12 @@ class RecordingGateway(SupabaseGateway):
 
         if function_name == "accept_recommendation":
             return "match-1"
+
+        if function_name == "complete_custom_match_for_recommendations":
+            return {
+                "match_id": "00000000-0000-0000-0000-000000000999",
+                "snapshot": _snapshot(number_of_courts=2),
+            }
 
         return _snapshot(number_of_courts=2)
 

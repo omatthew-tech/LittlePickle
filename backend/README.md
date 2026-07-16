@@ -148,7 +148,8 @@ Main flow:
 
 1. `POST /recommendations/{recommendation_id}/accept` creates an active match on the requested court or lowest open court.
 2. `POST /matches/{match_id}/complete` saves the score, advances queue state, regenerates recommendations, stores the new batch in Supabase, and returns it.
-3. `POST /recommendations/{recommendation_id}/pass-player` moves the passed player to the end of the queue, regenerates recommendations, stores the new batch, and returns it.
+3. `POST /sessions/{session_id}/matches/custom` creates and completes a match for four selected current-session players without requiring a previously started match. It then advances the queue and regenerates recommendations through the normal completion flow.
+4. `POST /recommendations/{recommendation_id}/pass-player` moves the passed player to the end of the queue, regenerates recommendations, stores the new batch, and returns it.
 
 Supabase RPCs used by the Expo app:
 

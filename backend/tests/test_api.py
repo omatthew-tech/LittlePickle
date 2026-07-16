@@ -1,9 +1,12 @@
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 
 import app.recommendations as recommendation_module
 import app.main as main_module
 from app.main import app
 from app.config import Settings
+from app.models import RecommendationSnapshot
 
 
 client = TestClient(app)
@@ -36,6 +39,93 @@ def test_complete_match_requires_bearer_token():
     )
 
     assert response.status_code == 401
+
+
+def test_custom_match_requires_bearer_token():
+    response = client.post(
+        "/sessions/00000000-0000-0000-0000-000000000001/matches/custom",
+        json={
+            "team_one_player_ids": [
+                "00000000-0000-0000-0000-000000000011",
+                "00000000-0000-0000-0000-000000000012",
+            ],
+            "team_two_player_ids": [
+                "00000000-0000-0000-0000-000000000013",
+                "00000000-0000-0000-0000-000000000014",
+            ],
+            "team_one_score": 11,
+            "team_two_score": 7,
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_custom_match_requires_four_distinct_players():
+    response = client.post(
+        "/sessions/00000000-0000-0000-0000-000000000001/matches/custom",
+        headers={"Authorization": "Bearer user-token"},
+        json={
+            "team_one_player_ids": [
+                "00000000-0000-0000-0000-000000000011",
+                "00000000-0000-0000-0000-000000000012",
+            ],
+            "team_two_player_ids": [
+                "00000000-0000-0000-0000-000000000011",
+                "00000000-0000-0000-0000-000000000014",
+            ],
+            "team_one_score": 11,
+            "team_two_score": 7,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_custom_match_completes_and_regenerates_recommendations(monkeypatch):
+    stored_match_ids: list[UUID] = []
+
+    class FakeGateway:
+        def __init__(self, settings: Settings) -> None:
+            self.settings = settings
+
+        async def complete_custom_match(self, session_id, request, access_token):
+            assert str(session_id) == "00000000-0000-0000-0000-000000000001"
+            assert request.team_one_score == 11
+            assert request.team_two_score == 7
+            assert access_token == "user-token"
+            return (
+                UUID("00000000-0000-0000-0000-000000000999"),
+                RecommendationSnapshot.model_validate(_snapshot(number_of_courts=2)),
+            )
+
+        async def store_recommendations(self, response, generated_after_match_id):
+            stored_match_ids.append(generated_after_match_id)
+            return response
+
+    monkeypatch.setattr(recommendation_module, "_load_cp_model", lambda: None)
+    monkeypatch.setattr(main_module, "SupabaseGateway", FakeGateway)
+
+    response = client.post(
+        "/sessions/00000000-0000-0000-0000-000000000001/matches/custom",
+        headers={"Authorization": "Bearer user-token"},
+        json={
+            "team_one_player_ids": [
+                "00000000-0000-0000-0000-000000000011",
+                "00000000-0000-0000-0000-000000000012",
+            ],
+            "team_two_player_ids": [
+                "00000000-0000-0000-0000-000000000013",
+                "00000000-0000-0000-0000-000000000014",
+            ],
+            "team_one_score": 11,
+            "team_two_score": 7,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["session_id"] == "sample-session"
+    assert stored_match_ids == [UUID("00000000-0000-0000-0000-000000000999")]
 
 
 def test_qr_email_requires_bearer_token():

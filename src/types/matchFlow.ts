@@ -110,6 +110,11 @@ export type CompleteMatchRequest = {
   team_two_score: number;
 };
 
+export type CustomMatchRequest = CompleteMatchRequest & {
+  team_one_player_ids: [string, string];
+  team_two_player_ids: [string, string];
+};
+
 export type PassPlayerRequest = {
   session_id: string;
   player_id: string;

@@ -10,6 +10,7 @@ from .models import (
     AcceptRecommendationRequest,
     AcceptRecommendationResponse,
     CompleteMatchRequest,
+    CustomMatchRequest,
     MatchRecommendation,
     PassPlayerRequest,
     RecommendationResponse,
@@ -67,6 +68,32 @@ def create_app() -> FastAPI:
             algorithm_version=current_settings.algorithm_version,
         )
         return await gateway.store_recommendations(response, generated_after_match_id=match_id)
+
+    @app.post(
+        "/sessions/{session_id}/matches/custom",
+        response_model=RecommendationResponse,
+    )
+    async def complete_custom_match(
+        session_id: UUID,
+        request: CustomMatchRequest,
+        authorization: str | None = Header(default=None),
+        current_settings: Settings = Depends(get_settings),
+    ) -> RecommendationResponse:
+        access_token = bearer_token_from_header(authorization)
+        gateway = SupabaseGateway(current_settings)
+        match_id, snapshot = await gateway.complete_custom_match(
+            session_id,
+            request,
+            access_token,
+        )
+        response = build_recommendation_response(
+            snapshot=snapshot,
+            algorithm_version=current_settings.algorithm_version,
+        )
+        return await gateway.store_recommendations(
+            response,
+            generated_after_match_id=match_id,
+        )
 
     @app.post(
         "/recommendations/{recommendation_id}/pass-player",

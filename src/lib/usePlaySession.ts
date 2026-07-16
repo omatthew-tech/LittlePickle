@@ -14,6 +14,7 @@ import {
 } from "./littlePickleData";
 import {
   acceptRecommendation,
+  completeCustomMatch,
   completeMatch,
   isMatchFlowApiConfigured,
   matchFlowApiConfigKey,
@@ -24,7 +25,9 @@ import { publicProfileImageUrl } from "./profileImages";
 import { isSupabaseConfigured } from "./supabase";
 import type {
   ActiveMatch,
+  ActiveMatchPlayer,
   CompletedMatch,
+  CustomMatchRequest,
   MatchRecommendation,
   PlayerSnapshot,
   RecommendationResponse,
@@ -46,6 +49,7 @@ type PlaySessionState = {
   loading: boolean;
   players: Player[];
   recommendations: MatchRecommendation[];
+  recordCustomMatch: (request: CustomMatchRequest) => Promise<boolean>;
   refresh: () => Promise<void>;
   sessionEnded: boolean;
   setPlayerInSession: (playerId: string, inSession: boolean) => Promise<boolean>;
@@ -368,6 +372,63 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
     [liveEnabled, readOnly, resolvedSessionId]
   );
 
+  const recordCustomMatch = useCallback(
+    async (request: CustomMatchRequest) => {
+      if (!liveEnabled || !resolvedSessionId) {
+        const completedMatch = demoCustomMatch(request, players);
+
+        if (!completedMatch) {
+          setErrorMessage("Choose four different players before saving the score.");
+          return false;
+        }
+
+        const playedPlayerIds = new Set(completedMatch.players.map((player) => player.player_id));
+        setCompletedMatches((previousMatches) => [completedMatch, ...previousMatches]);
+        setPlayers((previousPlayers) =>
+          previousPlayers.map((player) =>
+            playedPlayerIds.has(player.id)
+              ? { ...player, gamesPlayed: (player.gamesPlayed ?? 0) + 1 }
+              : player
+          )
+        );
+        setErrorMessage(null);
+        return true;
+      }
+
+      if (readOnly) {
+        setErrorMessage("This queue is view only.");
+        return false;
+      }
+
+      if (!isMatchFlowApiConfigured) {
+        setErrorMessage("EXPO_PUBLIC_MATCH_FLOW_API_URL is not configured.");
+        return false;
+      }
+
+      setErrorMessage(null);
+
+      try {
+        const response = await completeCustomMatch(resolvedSessionId, request);
+        const [snapshot, matches, completed, playerOptions] = await Promise.all([
+          getSessionRecommendationSnapshot(resolvedSessionId),
+          getActiveMatches(resolvedSessionId),
+          getCompletedMatches(resolvedSessionId),
+          getSessionPlayerOptions(resolvedSessionId)
+        ]);
+        setRecommendations(response.recommendations);
+        setActiveMatches(matches.matches);
+        setCourtCount(snapshot.organization.number_of_courts);
+        setCompletedMatches(completed.matches);
+        setPlayers(playerOptions.length > 0 ? playerOptions.map(playerFromOption) : snapshot.players.map(playerFromSnapshot));
+        return true;
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Could not save custom score.");
+        return false;
+      }
+    },
+    [liveEnabled, players, readOnly, resolvedSessionId]
+  );
+
   useEffect(() => {
     setErrorMessage(null);
     void refresh();
@@ -387,6 +448,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       passRecommendedPlayer,
       players,
       recommendations,
+      recordCustomMatch,
       refresh,
       sessionEnded,
       setPlayerInSession,
@@ -405,6 +467,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       passRecommendedPlayer,
       players,
       recommendations,
+      recordCustomMatch,
       refresh,
       sessionEnded,
       setPlayerInSession,
@@ -659,4 +722,58 @@ function addDemoPlayer(players: Player[], displayName: string) {
       skill: 3
     }
   ];
+}
+
+function demoCustomMatch(request: CustomMatchRequest, players: Player[]): CompletedMatch | null {
+  const playerIds = [...request.team_one_player_ids, ...request.team_two_player_ids];
+
+  if (new Set(playerIds).size !== 4) {
+    return null;
+  }
+
+  const playersById = new Map(players.map((player) => [player.id, player]));
+  const matchPlayers: Array<ActiveMatchPlayer | null> = [
+    demoMatchPlayer(playersById, request.team_one_player_ids[0], 1, 1),
+    demoMatchPlayer(playersById, request.team_one_player_ids[1], 1, 2),
+    demoMatchPlayer(playersById, request.team_two_player_ids[0], 2, 1),
+    demoMatchPlayer(playersById, request.team_two_player_ids[1], 2, 2)
+  ];
+
+  if (matchPlayers.some((player) => player === null)) {
+    return null;
+  }
+
+  const completedAt = new Date().toISOString();
+
+  return {
+    completed_at: completedAt,
+    court_number: null,
+    id: `custom-${Date.now()}`,
+    players: matchPlayers as ActiveMatchPlayer[],
+    started_at: completedAt,
+    team_one_score: request.team_one_score,
+    team_two_score: request.team_two_score
+  };
+}
+
+function demoMatchPlayer(
+  playersById: Map<string, Player>,
+  playerId: string,
+  teamNumber: 1 | 2,
+  slotNumber: 1 | 2
+): ActiveMatchPlayer | null {
+  const player = playersById.get(playerId);
+
+  if (!player) {
+    return null;
+  }
+
+  return {
+    name: player.name,
+    player_id: player.id,
+    profile_image_path: null,
+    skill: player.skill ?? 3,
+    slot_number: slotNumber,
+    team_number: teamNumber
+  };
 }

@@ -36,6 +36,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     passRecommendedPlayer,
     players,
     recommendations,
+    recordCustomMatch,
     refresh,
     sessionEnded,
     startRecommendedMatch
@@ -90,11 +91,6 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     const matchId = scoreMatchId;
     setScoreMatchId(null);
     await completeActiveMatch(matchId, teamOneScore, teamTwoScore);
-  }
-
-  function handleSelectCustomScoreMatch(matchId: string) {
-    setCustomScoreOpen(false);
-    setScoreMatchId(matchId);
   }
 
   function handleOpenMatchHistory() {
@@ -177,9 +173,9 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
         />
       ) : null}
       <CustomScoreModal
-        matches={activeMatches}
         onClose={() => setCustomScoreOpen(false)}
-        onSelectMatch={handleSelectCustomScoreMatch}
+        onSubmit={recordCustomMatch}
+        players={players}
         visible={customScoreOpen}
       />
       <MatchHistoryModal

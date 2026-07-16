@@ -10,6 +10,7 @@ from .config import Settings
 from .models import (
     AcceptRecommendationResponse,
     CompleteMatchRequest,
+    CustomMatchRequest,
     PassPlayerRequest,
     RecommendationResponse,
     RecommendationSnapshot,
@@ -37,6 +38,31 @@ class SupabaseGateway:
             access_token,
         )
         return RecommendationSnapshot.model_validate(data)
+
+    async def complete_custom_match(
+        self,
+        session_id: UUID,
+        request: CustomMatchRequest,
+        access_token: str,
+    ) -> tuple[UUID, RecommendationSnapshot]:
+        payload = {
+            "p_session_id": str(session_id),
+            "p_team_one_player_one_id": str(request.team_one_player_ids[0]),
+            "p_team_one_player_two_id": str(request.team_one_player_ids[1]),
+            "p_team_two_player_one_id": str(request.team_two_player_ids[0]),
+            "p_team_two_player_two_id": str(request.team_two_player_ids[1]),
+            "p_team_one_score": request.team_one_score,
+            "p_team_two_score": request.team_two_score,
+        }
+        data = await self._rpc_as_user(
+            "complete_custom_match_for_recommendations",
+            payload,
+            access_token,
+        )
+        return (
+            UUID(str(data["match_id"])),
+            RecommendationSnapshot.model_validate(data["snapshot"]),
+        )
 
     async def pass_player(
         self,

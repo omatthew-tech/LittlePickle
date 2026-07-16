@@ -4,6 +4,7 @@ import type {
   AcceptRecommendationRequest,
   AcceptRecommendationResponse,
   CompleteMatchRequest,
+  CustomMatchRequest,
   PassPlayerRequest,
   RecommendationResponse,
   RecommendationSnapshot
@@ -29,6 +30,14 @@ export async function previewRecommendations(snapshot: RecommendationSnapshot) {
 
 export async function completeMatch(matchId: string, request: CompleteMatchRequest) {
   return requestMatchFlow<RecommendationResponse>(`/matches/${matchId}/complete`, {
+    body: request,
+    authenticated: true,
+    method: "POST"
+  });
+}
+
+export async function completeCustomMatch(sessionId: string, request: CustomMatchRequest) {
+  return requestMatchFlow<RecommendationResponse>(`/sessions/${sessionId}/matches/custom`, {
     body: request,
     authenticated: true,
     method: "POST"

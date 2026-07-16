@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OrganizationSnapshot(BaseModel):
@@ -67,6 +67,20 @@ class RecommendationResponse(BaseModel):
 class CompleteMatchRequest(BaseModel):
     team_one_score: int = Field(ge=0)
     team_two_score: int = Field(ge=0)
+
+
+class CustomMatchRequest(CompleteMatchRequest):
+    team_one_player_ids: list[UUID] = Field(min_length=2, max_length=2)
+    team_two_player_ids: list[UUID] = Field(min_length=2, max_length=2)
+
+    @model_validator(mode="after")
+    def require_four_distinct_players(self) -> "CustomMatchRequest":
+        player_ids = self.team_one_player_ids + self.team_two_player_ids
+
+        if len(set(player_ids)) != 4:
+            raise ValueError("custom matches require four distinct players")
+
+        return self
 
 
 class PassPlayerRequest(BaseModel):
