@@ -39,7 +39,6 @@ function teamFromPlayers(
       .map((player) => ({
         avatarUrl: player.profile_image_path ? publicProfileImageUrl(player.profile_image_path) : null,
         id: player.player_id,
-        meta: player.skill.toFixed(2),
         name: player.name
       }))
   };

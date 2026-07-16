@@ -101,7 +101,7 @@ export function CurrentPlayersSection({
             avatarInitials={player.initials}
             avatarUrl={player.avatarUrl}
             key={player.id}
-            meta={[player.skill ? player.skill.toFixed(2) : null, player.isPlaying ? "Playing" : null].filter(Boolean).join(" | ")}
+            meta={player.isPlaying ? "Playing" : null}
             name={player.name}
             onAction={(action) => void handlePlayerMembership(player.id, action === "add")}
             onSelectionChange={readOnly ? undefined : (selected) => void handlePlayerMembership(player.id, selected)}

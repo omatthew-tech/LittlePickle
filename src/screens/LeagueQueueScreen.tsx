@@ -88,7 +88,7 @@ export function LeagueQueueScreen({
   const displayName = queuedPlayer?.name ?? profile.displayName;
   const isQueued = Boolean(queuedPlayer?.inSession);
   const shouldShowStats = isQueued || (!readOnly && !animateStatsReveal);
-  const rank = formatRank(queuedPlayer?.skill ?? profile.rating ?? null);
+  const rank = leagueRankLabel(queuedPlayer, players);
   const wait = loading && !queuedPlayer ? "--" : isQueued ? queueWaitLabel(queuedPlayer, activeMatches.length) : "--";
   const upAfter = loading && !queuedPlayer ? "--" : isQueued ? upAfterLabel(queuedPlayer, activeMatches.length) : "--";
   const membershipActionLabel = isQueued ? "Leave queue" : "Join queue";
@@ -363,8 +363,20 @@ function QueueStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatRank(rank: number | null) {
-  return typeof rank === "number" && Number.isFinite(rank) ? rank.toFixed(2) : "--";
+function leagueRankLabel(player: Player | null, players: Player[]) {
+  if (!player || typeof player.skill !== "number" || !Number.isFinite(player.skill)) {
+    return "--";
+  }
+
+  const playerSkill = player.skill;
+  const playersRankedAbove = players.filter(
+    (candidate) =>
+      typeof candidate.skill === "number" &&
+      Number.isFinite(candidate.skill) &&
+      candidate.skill > playerSkill
+  ).length;
+
+  return `#${playersRankedAbove + 1}`;
 }
 
 function upAfterLabel(player: Player | null, activeMatchCount: number) {

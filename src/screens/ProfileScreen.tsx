@@ -409,7 +409,7 @@ export function ProfileScreen({ onActiveProfileChanged }: ProfileScreenProps) {
                   avatarInitials={initialsFor(player.display_name)}
                   avatarUrl={player.profile_image_path ? publicProfileImageUrl(player.profile_image_path) : null}
                   key={player.id}
-                  meta={[current ? "Current user" : null, Number(player.rating).toFixed(2)].filter(Boolean).join(" | ")}
+                  meta={current ? "Current user" : null}
                   name={player.display_name}
                   onSelectionChange={switchLoading ? undefined : () => void switchToPlayer(player)}
                   selected={current}

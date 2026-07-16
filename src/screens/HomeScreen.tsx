@@ -75,7 +75,6 @@ type LeagueDraft = {
 
 type PlayerDraft = {
   displayName: string;
-  rating: string;
 };
 
 type QrCodeRef = {
@@ -83,6 +82,8 @@ type QrCodeRef = {
 };
 
 type QrEmailStatus = "idle" | "sending" | "sent" | "error";
+
+const defaultMatchmakingRating = 3;
 
 const initialDraft: LeagueDraft = {
   courtCount: "3",
@@ -920,24 +921,21 @@ export function HomeScreen({
     }
   }
 
-  function updatePlayerDraft(organizationId: string, field: keyof PlayerDraft, value: string) {
+  function updatePlayerDraft(organizationId: string, value: string) {
     setPlayerDrafts((previousDrafts) => ({
       ...previousDrafts,
       [organizationId]: {
-        displayName: "",
-        rating: "3.0",
         ...previousDrafts[organizationId],
-        [field]: value
+        displayName: value
       }
     }));
   }
 
   async function addOrganizationPlayer(organization: OrganizationSummary) {
-    const draftPlayer = playerDrafts[organization.id] ?? { displayName: "", rating: "3.0" };
-    const parsedRating = Number.parseFloat(draftPlayer.rating);
+    const draftPlayer = playerDrafts[organization.id] ?? { displayName: "" };
 
-    if (!draftPlayer.displayName.trim() || !Number.isFinite(parsedRating) || parsedRating <= 0) {
-      setErrorMessage("Enter a player name and rating.");
+    if (!draftPlayer.displayName.trim()) {
+      setErrorMessage("Enter a player name.");
       return;
     }
 
@@ -948,11 +946,11 @@ export function HomeScreen({
       await createPlayer({
         displayName: draftPlayer.displayName.trim(),
         organizationId: organization.id,
-        rating: parsedRating
+        rating: defaultMatchmakingRating
       });
       setPlayerDrafts((previousDrafts) => ({
         ...previousDrafts,
-        [organization.id]: { displayName: "", rating: "3.0" }
+        [organization.id]: { displayName: "" }
       }));
       await loadOrganizationPlayers(organization.id);
     } catch (error) {
@@ -1085,7 +1083,7 @@ export function HomeScreen({
           const openSessions = organizationOpenSessions[organization.id] ?? [];
           const isExpanded = expandedRosterLeagueId === organization.id;
           const players = organizationPlayers[organization.id] ?? [];
-          const playerDraft = playerDrafts[organization.id] ?? { displayName: "", rating: "3.0" };
+          const playerDraft = playerDrafts[organization.id] ?? { displayName: "" };
           const activePlayers = activePlayersText(openSessions[0]?.active_player_count ?? 0);
 
           return (
@@ -1117,20 +1115,11 @@ export function HomeScreen({
                   <View style={styles.addPlayerRow}>
                     <TextInput
                       accessibilityLabel="Player name"
-                      onChangeText={(value) => updatePlayerDraft(organization.id, "displayName", value)}
+                      onChangeText={(value) => updatePlayerDraft(organization.id, value)}
                       placeholder="First and last name"
                       placeholderTextColor={theme.color.text.secondary}
                       style={[styles.settingsInput, styles.playerNameInput]}
                       value={playerDraft.displayName}
-                    />
-                    <TextInput
-                      accessibilityLabel="Player rating"
-                      keyboardType="decimal-pad"
-                      onChangeText={(value) => updatePlayerDraft(organization.id, "rating", value)}
-                      placeholder="Rating"
-                      placeholderTextColor={theme.color.text.secondary}
-                      style={[styles.settingsInput, styles.playerRatingInput]}
-                      value={playerDraft.rating}
                     />
                   </View>
                   <ActionButton
@@ -1142,9 +1131,7 @@ export function HomeScreen({
                     <View key={player.id} style={styles.playerSummaryRow}>
                       <View style={styles.leagueText}>
                         <Text style={styles.memberName}>{player.display_name}</Text>
-                        <Text style={styles.leagueMeta}>
-                          {Number(player.rating).toFixed(2)} | {player.active ? "Active" : "Inactive"}
-                        </Text>
+                        <Text style={styles.leagueMeta}>{player.active ? "Active" : "Inactive"}</Text>
                       </View>
                     </View>
                   ))}
@@ -1448,10 +1435,7 @@ export function HomeScreen({
                     </View>
                     <View style={styles.leagueText}>
                       <Text style={styles.memberName}>{match.display_name}</Text>
-                      <Text style={styles.leagueMeta}>
-                        {Number(match.rating).toFixed(2)}
-                        {match.profile_image_path ? " | profile photo" : ""}
-                      </Text>
+                      {match.profile_image_path ? <Text style={styles.leagueMeta}>Profile photo</Text> : null}
                     </View>
                   </Pressable>
                 ))}
@@ -1734,11 +1718,6 @@ const styles = StyleSheet.create({
   },
   playerNameInput: {
     flex: 1
-  },
-  playerRatingInput: {
-    flexGrow: 0,
-    textAlign: "center",
-    width: 96
   },
   playerSummaryRow: {
     borderColor: theme.color.border.subtle,
