@@ -21,6 +21,7 @@ const playersPerMatch = 4;
 const estimatedMinutesPerMatch = 8;
 
 export type LeagueQueueProfile = {
+  animateStatsReveal?: boolean;
   avatarPath?: string | null;
   displayName: string;
   leagueId: string;
@@ -40,6 +41,7 @@ type LeagueQueueScreenProps = {
   onJoinQueue: () => Promise<void> | void;
   onLeftQueue: () => void;
   onQueueMembershipChanged: () => void;
+  onStatsRevealConsumed: () => void;
   onViewedQueueEnded: () => void;
   profile: LeagueQueueProfile;
 };
@@ -50,11 +52,13 @@ export function LeagueQueueScreen({
   onJoinQueue,
   onLeftQueue,
   onQueueMembershipChanged,
+  onStatsRevealConsumed,
   onViewedQueueEnded,
   profile
 }: LeagueQueueScreenProps) {
   const insets = useSafeAreaInsets();
   const readOnly = Boolean(profile.readOnly);
+  const animateStatsReveal = useRef(Boolean(profile.animateStatsReveal)).current;
   const {
     activeMatches,
     addNewPlayerToSession: addNewPlayerToExistingSession,
@@ -74,17 +78,24 @@ export function LeagueQueueScreen({
   const [updatingMembership, setUpdatingMembership] = useState(false);
   const [statsContentHeight, setStatsContentHeight] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const statsReveal = useRef(new Animated.Value(0)).current;
+  const statsReveal = useRef(new Animated.Value(readOnly || animateStatsReveal ? 0 : 1)).current;
+  const statsRevealConsumed = useRef(false);
+  const onStatsRevealConsumedRef = useRef(onStatsRevealConsumed);
   const queuedPlayer = useMemo(
     () => players.find((player) => player.id === profile.playerId) ?? null,
     [players, profile.playerId]
   );
   const displayName = queuedPlayer?.name ?? profile.displayName;
   const isQueued = Boolean(queuedPlayer?.inSession);
+  const shouldShowStats = isQueued || (!readOnly && !animateStatsReveal);
   const rank = formatRank(queuedPlayer?.skill ?? profile.rating ?? null);
   const wait = loading && !queuedPlayer ? "--" : isQueued ? queueWaitLabel(queuedPlayer, activeMatches.length) : "--";
   const upAfter = loading && !queuedPlayer ? "--" : isQueued ? upAfterLabel(queuedPlayer, activeMatches.length) : "--";
   const membershipActionLabel = isQueued ? "Leave queue" : "Join queue";
+
+  useEffect(() => {
+    onStatsRevealConsumedRef.current = onStatsRevealConsumed;
+  }, [onStatsRevealConsumed]);
 
   useEffect(() => {
     let mounted = true;
@@ -110,18 +121,33 @@ export function LeagueQueueScreen({
 
     statsReveal.stopAnimation();
 
+    if (!animateStatsReveal) {
+      statsReveal.setValue(shouldShowStats ? 1 : 0);
+      return;
+    }
+
+    if (!isQueued) {
+      statsReveal.setValue(0);
+      return;
+    }
+
+    if (!statsRevealConsumed.current) {
+      statsRevealConsumed.current = true;
+      onStatsRevealConsumedRef.current();
+    }
+
     if (reduceMotion) {
-      statsReveal.setValue(isQueued ? 1 : 0);
+      statsReveal.setValue(1);
       return;
     }
 
     Animated.timing(statsReveal, {
-      duration: isQueued ? 360 : 240,
-      easing: isQueued ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
-      toValue: isQueued ? 1 : 0,
+      duration: 360,
+      easing: Easing.out(Easing.cubic),
+      toValue: 1,
       useNativeDriver: false
     }).start();
-  }, [isQueued, reduceMotion, statsContentHeight, statsReveal]);
+  }, [animateStatsReveal, isQueued, reduceMotion, shouldShowStats, statsContentHeight, statsReveal]);
 
   useEffect(() => {
     if (!sessionEnded) {
@@ -254,8 +280,8 @@ export function LeagueQueueScreen({
           </Pressable>
         </View>
         <Animated.View
-          accessibilityElementsHidden={!isQueued}
-          importantForAccessibility={isQueued ? "auto" : "no-hide-descendants"}
+          accessibilityElementsHidden={!shouldShowStats}
+          importantForAccessibility={shouldShowStats ? "auto" : "no-hide-descendants"}
           style={[
             styles.queueDetailsMask,
             {

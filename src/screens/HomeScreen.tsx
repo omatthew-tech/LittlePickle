@@ -456,7 +456,10 @@ export function HomeScreen({
       setJoinLeague(null);
       setJoinName("");
       setSelectedPlayerId(null);
-      onQueueProfileChanged(savedProfile);
+      onQueueProfileChanged({
+        ...savedProfile,
+        animateStatsReveal: true
+      });
       await loadHomeData();
       onSessionSelected(joined.session_id);
     } catch (error) {
@@ -555,7 +558,10 @@ export function HomeScreen({
       setJoinLeague(null);
       setJoinName("");
       setSelectedPlayerId(null);
-      onQueueProfileChanged(savedProfile);
+      onQueueProfileChanged({
+        ...savedProfile,
+        animateStatsReveal: true
+      });
       onSessionSelected(sessionId);
       await loadHomeData();
     } catch (error) {
@@ -1344,6 +1350,16 @@ export function HomeScreen({
         }}
         onQueueMembershipChanged={() => {
           void loadHomeData();
+        }}
+        onStatsRevealConsumed={() => {
+          if (!activeQueueProfile.animateStatsReveal) {
+            return;
+          }
+
+          onQueueProfileChanged({
+            ...activeQueueProfile,
+            animateStatsReveal: false
+          });
         }}
         onViewedQueueEnded={() => {
           onQueueProfileChanged({

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionButton } from "../components/ActionButton";
 import { MatchCard } from "../components/MatchCard";
 import { ScoreReportModal } from "../components/ScoreReportModal";
 import { theme } from "../design/theme";
@@ -31,7 +30,6 @@ export function PlayScreen({ onSessionEnded, sessionId }: PlayScreenProps) {
     loading,
     passRecommendedPlayer,
     recommendations,
-    refresh,
     sessionEnded,
     startRecommendedMatch
   } = usePlaySession(sessionId);
@@ -140,16 +138,6 @@ export function PlayScreen({ onSessionEnded, sessionId }: PlayScreenProps) {
         ))}
       </View>
 
-      {live ? (
-        <View style={styles.playersSection}>
-          <ActionButton
-            icon="history"
-            label="Refresh recommendations"
-            onPress={() => void refresh()}
-            variant="text"
-          />
-        </View>
-      ) : null}
       <ScoreReportModal
         matchLabel={scoreMatch ? activeMatchLabel(scoreMatch) : "Active match"}
         onClose={() => setScoreMatchId(null)}
@@ -191,10 +179,6 @@ const styles = StyleSheet.create({
   pageTitle: {
     ...theme.type.headingPage,
     color: theme.color.text.primary
-  },
-  playersSection: {
-    gap: theme.layout.stackDefault,
-    marginTop: theme.layout.sectionGap
   },
   sectionTitle: {
     ...theme.type.headingSection,
