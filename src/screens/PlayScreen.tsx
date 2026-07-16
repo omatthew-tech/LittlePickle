@@ -111,28 +111,6 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
         </Text>
       ) : null}
       {loading ? <ActivityIndicator color={theme.color.action.primary} style={styles.loading} /> : null}
-      {activeMatches.length > 0 ? (
-        <View style={styles.activeSection}>
-          <Text accessibilityRole="header" style={styles.sectionTitle}>
-            Active matches
-          </Text>
-          <View style={styles.matchList}>
-            {activeMatches.map((match) => (
-              <MatchCard
-                courtLabel={activeMatchLabel(match)}
-                key={match.id}
-                matchId={match.id}
-                onPassPlayer={() => undefined}
-                onReportScore={(matchId) => setScoreMatchId(matchId)}
-                playerAction="none"
-                primaryActionLabel="Report score"
-                primaryActionTone="pickleLeaf"
-                teams={activeMatchTeams(match)}
-              />
-            ))}
-          </View>
-        </View>
-      ) : null}
       <View style={styles.matchList}>
         {recommendations.map((match) => (
           <MatchCard
@@ -144,6 +122,19 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
             canReportScore={canStartRecommendedMatch}
             primaryActionLabel={canStartRecommendedMatch ? "Start match" : "Courts full"}
             teams={recommendationTeams(match, displayNamesByPlayerId)}
+          />
+        ))}
+        {activeMatches.map((match) => (
+          <MatchCard
+            courtLabel={activeMatchLabel(match)}
+            key={match.id}
+            matchId={match.id}
+            onPassPlayer={() => undefined}
+            onReportScore={(matchId) => setScoreMatchId(matchId)}
+            playerAction="none"
+            primaryActionLabel="Report score"
+            primaryActionTone="pickleLeaf"
+            teams={activeMatchTeams(match)}
           />
         ))}
       </View>
@@ -168,9 +159,6 @@ function friendlyPlayerName(playerId: string) {
 }
 
 const styles = StyleSheet.create({
-  activeSection: {
-    marginTop: theme.layout.sectionGap
-  },
   content: {
     backgroundColor: theme.color.surface.canvas,
     flexGrow: 1,
@@ -190,10 +178,6 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     ...theme.type.headingPage,
-    color: theme.color.text.primary
-  },
-  sectionTitle: {
-    ...theme.type.headingSection,
     color: theme.color.text.primary
   },
   sessionMeta: {
