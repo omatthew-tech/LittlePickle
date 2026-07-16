@@ -4,13 +4,12 @@ import { theme } from "../design/theme";
 import { ActionButton } from "./ActionButton";
 
 type ScoreReportModalProps = {
-  matchLabel: string;
   onClose: () => void;
   onSubmit: (teamOneScore: number, teamTwoScore: number) => void;
   visible: boolean;
 };
 
-export function ScoreReportModal({ matchLabel, onClose, onSubmit, visible }: ScoreReportModalProps) {
+export function ScoreReportModal({ onClose, onSubmit, visible }: ScoreReportModalProps) {
   const [teamOneScore, setTeamOneScore] = useState("");
   const [teamTwoScore, setTeamTwoScore] = useState("");
 
@@ -30,7 +29,6 @@ export function ScoreReportModal({ matchLabel, onClose, onSubmit, visible }: Sco
       <View style={styles.backdrop}>
         <View accessibilityLabel="Report score" accessibilityRole="summary" style={styles.dialog}>
           <Text style={styles.title}>Report score</Text>
-          <Text style={styles.subtitle}>{matchLabel}</Text>
           <View style={styles.scoreRow}>
             <TextInput
               accessibilityLabel="Team one score"
@@ -128,10 +126,6 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     minWidth: 132
-  },
-  subtitle: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.secondary
   },
   title: {
     ...theme.type.headingSection,

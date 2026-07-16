@@ -81,8 +81,6 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     await completeActiveMatch(matchId, teamOneScore, teamTwoScore);
   }
 
-  const scoreMatch = activeMatches.find((match) => match.id === scoreMatchId) ?? null;
-
   return (
     <ScrollView
       contentContainerStyle={[
@@ -146,7 +144,6 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
       </View>
 
       <ScoreReportModal
-        matchLabel={scoreMatch ? activeMatchLabel(scoreMatch) : "Active match"}
         onClose={() => setScoreMatchId(null)}
         onSubmit={handleSubmitScore}
         visible={Boolean(scoreMatchId)}
