@@ -37,10 +37,15 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     startRecommendedMatch
   } = usePlaySession(sessionId);
   const [scoreMatchId, setScoreMatchId] = useState<string | null>(null);
-  const recommendationDisplayNames = useMemo(
+  const displayNamesByPlayerId = useMemo(
     () => playerDisplayNames(players, currentPlayerId),
     [currentPlayerId, players]
   );
+  const scoreMatchTeams = useMemo(() => {
+    const scoreMatch = activeMatches.find((match) => match.id === scoreMatchId);
+
+    return scoreMatch ? activeMatchTeams(scoreMatch, displayNamesByPlayerId) : null;
+  }, [activeMatches, displayNamesByPlayerId, scoreMatchId]);
 
   useEffect(() => {
     if (sessionEnded) {
@@ -138,16 +143,19 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
             onReportScore={handleStartMatch}
             canReportScore={canStartRecommendedMatch}
             primaryActionLabel={canStartRecommendedMatch ? "Start match" : "Courts full"}
-            teams={recommendationTeams(match, recommendationDisplayNames)}
+            teams={recommendationTeams(match, displayNamesByPlayerId)}
           />
         ))}
       </View>
 
-      <ScoreReportModal
-        onClose={() => setScoreMatchId(null)}
-        onSubmit={handleSubmitScore}
-        visible={Boolean(scoreMatchId)}
-      />
+      {scoreMatchTeams ? (
+        <ScoreReportModal
+          onClose={() => setScoreMatchId(null)}
+          onSubmit={handleSubmitScore}
+          teams={scoreMatchTeams}
+          visible
+        />
+      ) : null}
     </ScrollView>
   );
 }

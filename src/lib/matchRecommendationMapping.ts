@@ -24,8 +24,14 @@ export function activeMatchLabel(match: ActiveMatch) {
   return match.court_number ? `Court ${match.court_number}` : "Active match";
 }
 
-export function activeMatchTeams(match: ActiveMatch): [MatchTeam, MatchTeam] {
-  return [teamFromPlayers(match.id, match.players, 1), teamFromPlayers(match.id, match.players, 2)];
+export function activeMatchTeams(
+  match: ActiveMatch,
+  displayNamesByPlayerId?: ReadonlyMap<string, string>
+): [MatchTeam, MatchTeam] {
+  return [
+    teamFromPlayers(match.id, match.players, 1, displayNamesByPlayerId),
+    teamFromPlayers(match.id, match.players, 2, displayNamesByPlayerId)
+  ];
 }
 
 function teamFromRecommendation(
