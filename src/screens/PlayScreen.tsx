@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MatchCard } from "../components/MatchCard";
@@ -11,14 +11,16 @@ import {
   recommendationLabel,
   recommendationTeams
 } from "../lib/matchRecommendationMapping";
+import { playerDisplayNames } from "../lib/playerDisplayNames";
 import { usePlaySession } from "../lib/usePlaySession";
 
 type PlayScreenProps = {
+  currentPlayerId?: string | null;
   onSessionEnded?: () => void;
   sessionId?: string | null;
 };
 
-export function PlayScreen({ onSessionEnded, sessionId }: PlayScreenProps) {
+export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }: PlayScreenProps) {
   const insets = useSafeAreaInsets();
   const {
     activeMatches,
@@ -29,11 +31,16 @@ export function PlayScreen({ onSessionEnded, sessionId }: PlayScreenProps) {
     live,
     loading,
     passRecommendedPlayer,
+    players,
     recommendations,
     sessionEnded,
     startRecommendedMatch
   } = usePlaySession(sessionId);
   const [scoreMatchId, setScoreMatchId] = useState<string | null>(null);
+  const recommendationDisplayNames = useMemo(
+    () => playerDisplayNames(players, currentPlayerId),
+    [currentPlayerId, players]
+  );
 
   useEffect(() => {
     if (sessionEnded) {
@@ -133,7 +140,7 @@ export function PlayScreen({ onSessionEnded, sessionId }: PlayScreenProps) {
             onReportScore={handleStartMatch}
             canReportScore={canStartRecommendedMatch}
             primaryActionLabel={canStartRecommendedMatch ? "Start match" : "Courts full"}
-            teams={recommendationTeams(match)}
+            teams={recommendationTeams(match, recommendationDisplayNames)}
           />
         ))}
       </View>

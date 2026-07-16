@@ -6,6 +6,7 @@ type PlayerAction = "add" | "remove" | "pass" | "none";
 
 type PlayerRowProps = {
   action?: PlayerAction;
+  accessibilityName?: string;
   avatarInitials?: string | null;
   avatarUrl?: string | null;
   density?: "default" | "compact";
@@ -19,6 +20,7 @@ type PlayerRowProps = {
 
 export function PlayerRow({
   action = "none",
+  accessibilityName,
   avatarInitials,
   avatarUrl,
   density = "default",
@@ -30,11 +32,12 @@ export function PlayerRow({
   showDivider = true
 }: PlayerRowProps) {
   const selectable = Boolean(onSelectionChange);
+  const accessiblePlayerName = accessibilityName ?? name;
 
   return (
     <Pressable
       accessibilityHint={selectable ? "Toggles player selection" : undefined}
-      accessibilityLabel={[name, meta, selected ? "Selected" : null].filter(Boolean).join(", ")}
+      accessibilityLabel={[accessiblePlayerName, meta, selected ? "Selected" : null].filter(Boolean).join(", ")}
       accessibilityRole={selectable ? "button" : "text"}
       accessibilityState={{ selected }}
       disabled={!selectable}
@@ -62,7 +65,7 @@ export function PlayerRow({
       </View>
       {action !== "none" ? (
         <Pressable
-          accessibilityLabel={`${labelFor(action)} ${name}`}
+          accessibilityLabel={`${labelFor(action)} ${accessiblePlayerName}`}
           accessibilityRole="button"
           onPress={() => onAction?.(action)}
           style={({ pressed }) => [styles.action, pressed ? styles.actionPressed : null]}

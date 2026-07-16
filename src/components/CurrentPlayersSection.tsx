@@ -5,9 +5,11 @@ import { PlayerRow } from "./PlayerRow";
 import { SearchField } from "./SearchField";
 import { theme } from "../design/theme";
 import type { Player } from "../data/sampleClub";
+import { playerDisplayNames } from "../lib/playerDisplayNames";
 
 type CurrentPlayersSectionProps = {
   addNewPlayerToSession: (displayName: string) => Promise<boolean>;
+  currentPlayerId?: string | null;
   live: boolean;
   loading: boolean;
   players: Player[];
@@ -17,6 +19,7 @@ type CurrentPlayersSectionProps = {
 
 export function CurrentPlayersSection({
   addNewPlayerToSession,
+  currentPlayerId = null,
   live,
   loading,
   players,
@@ -26,16 +29,32 @@ export function CurrentPlayersSection({
   const [playerQuery, setPlayerQuery] = useState("");
   const [addPlayerError, setAddPlayerError] = useState<string | null>(null);
   const normalizedPlayerQuery = normalizeDisplayName(playerQuery);
+  const displayNamesByPlayerId = useMemo(
+    () => playerDisplayNames(players, currentPlayerId),
+    [currentPlayerId, players]
+  );
 
   const visiblePlayers = useMemo(() => {
     const normalizedQuery = normalizedPlayerQuery.toLowerCase();
 
-    if (!normalizedQuery) {
-      return players;
+    const filteredPlayers = normalizedQuery
+      ? players.filter((player) => player.name.toLowerCase().includes(normalizedQuery))
+      : players;
+    const currentPlayerIndex = filteredPlayers.findIndex(
+      (player) => player.id === currentPlayerId && player.inSession
+    );
+    const currentPlayer = filteredPlayers[currentPlayerIndex];
+
+    if (currentPlayerIndex <= 0 || !currentPlayer) {
+      return filteredPlayers;
     }
 
-    return players.filter((player) => player.name.toLowerCase().includes(normalizedQuery));
-  }, [normalizedPlayerQuery, players]);
+    return [
+      currentPlayer,
+      ...filteredPlayers.slice(0, currentPlayerIndex),
+      ...filteredPlayers.slice(currentPlayerIndex + 1)
+    ];
+  }, [currentPlayerId, normalizedPlayerQuery, players]);
 
   const shouldUseLastNameCompletion = Boolean(normalizedPlayerQuery && visiblePlayers.length === 0);
   const newPlayerName = normalizedPlayerQuery;
@@ -95,19 +114,24 @@ export function CurrentPlayersSection({
         />
       ) : null}
       <View accessibilityLabel="Current players" accessibilityRole="list" style={styles.playerList}>
-        {visiblePlayers.map((player) => (
-          <PlayerRow
-            action={readOnly || (live && player.isPlaying) ? "none" : player.inSession ? "remove" : "add"}
-            avatarInitials={player.initials}
-            avatarUrl={player.avatarUrl}
-            key={player.id}
-            meta={player.isPlaying ? "Playing" : null}
-            name={player.name}
-            onAction={(action) => void handlePlayerMembership(player.id, action === "add")}
-            onSelectionChange={readOnly ? undefined : (selected) => void handlePlayerMembership(player.id, selected)}
-            selected={Boolean(player.inSession)}
-          />
-        ))}
+        {visiblePlayers.map((player) => {
+          const displayName = displayNamesByPlayerId.get(player.id) ?? player.name;
+
+          return (
+            <PlayerRow
+              accessibilityName={player.name}
+              action={readOnly || (live && player.isPlaying) ? "none" : player.inSession ? "remove" : "add"}
+              avatarInitials={player.initials}
+              avatarUrl={player.avatarUrl}
+              key={player.id}
+              meta={player.isPlaying ? "Playing" : null}
+              name={displayName}
+              onAction={(action) => void handlePlayerMembership(player.id, action === "add")}
+              onSelectionChange={readOnly ? undefined : (selected) => void handlePlayerMembership(player.id, selected)}
+              selected={Boolean(player.inSession)}
+            />
+          );
+        })}
       </View>
       {!readOnly && shouldShowAddPlayerPanel ? (
         <View style={styles.addPlayerPanel}>

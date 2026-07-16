@@ -342,6 +342,7 @@ export function LeagueQueueScreen({
       {loading ? <ActivityIndicator color={theme.color.action.primary} style={styles.loading} /> : null}
       <CurrentPlayersSection
         addNewPlayerToSession={handleAddNewPlayer}
+        currentPlayerId={profile.playerId}
         live={live}
         loading={loading}
         players={players}

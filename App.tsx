@@ -72,7 +72,11 @@ function AppShell() {
           />
         ) : null}
         {activeDestination === "play" ? (
-          <PlayScreen onSessionEnded={handleSessionEnded} sessionId={activeSessionId} />
+          <PlayScreen
+            currentPlayerId={activeQueueProfile?.playerId ?? null}
+            onSessionEnded={handleSessionEnded}
+            sessionId={activeSessionId}
+          />
         ) : null}
         {activeDestination === "profile" ? (
           <ProfileScreen onActiveProfileChanged={handleActivePlayerProfileChanged} />

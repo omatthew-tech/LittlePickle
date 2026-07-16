@@ -4,6 +4,7 @@ import { ActionButton } from "./ActionButton";
 import { PlayerRow } from "./PlayerRow";
 
 export type MatchPlayer = {
+  accessibilityName?: string;
   avatarUrl?: string | null;
   id: string;
   name: string;
@@ -53,8 +54,9 @@ export function MatchCard({
         <View style={styles.team}>
           {teams[0].players.map((player) => (
             <PlayerRow
+              accessibilityName={player.accessibilityName}
               action={playerAction}
-              avatarInitials={playerInitials(player.name)}
+              avatarInitials={playerInitials(player.accessibilityName ?? player.name)}
               avatarUrl={player.avatarUrl}
               density="compact"
               key={player.id}
@@ -75,8 +77,9 @@ export function MatchCard({
         <View style={styles.team}>
           {teams[1].players.map((player) => (
             <PlayerRow
+              accessibilityName={player.accessibilityName}
               action={playerAction}
-              avatarInitials={playerInitials(player.name)}
+              avatarInitials={playerInitials(player.accessibilityName ?? player.name)}
               avatarUrl={player.avatarUrl}
               density="compact"
               key={player.id}
@@ -112,7 +115,7 @@ function playerInitials(name: string) {
 }
 
 function teamNames(team: MatchTeam) {
-  return team.players.map((player) => player.name).join(" and ");
+  return team.players.map((player) => player.accessibilityName ?? player.name).join(" and ");
 }
 
 const styles = StyleSheet.create({
