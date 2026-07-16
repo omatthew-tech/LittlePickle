@@ -1,5 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CurrentPlayersSection } from "../components/CurrentPlayersSection";
 import { RallyIcon } from "../components/RallyIcon";
@@ -62,6 +72,9 @@ export function LeagueQueueScreen({
   });
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [updatingMembership, setUpdatingMembership] = useState(false);
+  const [statsContentHeight, setStatsContentHeight] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const statsReveal = useRef(new Animated.Value(0)).current;
   const queuedPlayer = useMemo(
     () => players.find((player) => player.id === profile.playerId) ?? null,
     [players, profile.playerId]
@@ -72,6 +85,43 @@ export function LeagueQueueScreen({
   const wait = loading && !queuedPlayer ? "--" : isQueued ? queueWaitLabel(queuedPlayer, activeMatches.length) : "--";
   const upAfter = loading && !queuedPlayer ? "--" : isQueued ? upAfterLabel(queuedPlayer, activeMatches.length) : "--";
   const membershipActionLabel = isQueued ? "Leave queue" : "Join queue";
+
+  useEffect(() => {
+    let mounted = true;
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) {
+        setReduceMotion(enabled);
+      }
+    });
+
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (statsContentHeight === 0) {
+      return;
+    }
+
+    statsReveal.stopAnimation();
+
+    if (reduceMotion) {
+      statsReveal.setValue(isQueued ? 1 : 0);
+      return;
+    }
+
+    Animated.timing(statsReveal, {
+      duration: isQueued ? 360 : 240,
+      easing: isQueued ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      toValue: isQueued ? 1 : 0,
+      useNativeDriver: false
+    }).start();
+  }, [isQueued, reduceMotion, statsContentHeight, statsReveal]);
 
   useEffect(() => {
     if (!sessionEnded) {
@@ -203,14 +253,55 @@ export function LeagueQueueScreen({
             <Text style={styles.queueActionText}>{readOnly ? "Join queue" : membershipActionLabel}</Text>
           </Pressable>
         </View>
-        <View style={styles.queueDivider} />
-        <View style={styles.queueStats}>
-          <QueueStat label="Up after" value={upAfter} />
-          <View style={styles.statDivider} />
-          <QueueStat label="Rank" value={rank} />
-          <View style={styles.statDivider} />
-          <QueueStat label="Wait" value={wait} />
-        </View>
+        <Animated.View
+          accessibilityElementsHidden={!isQueued}
+          importantForAccessibility={isQueued ? "auto" : "no-hide-descendants"}
+          style={[
+            styles.queueDetailsMask,
+            {
+              height: statsReveal.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, statsContentHeight]
+              })
+            }
+          ]}
+        >
+          <Animated.View
+            onLayout={(event) => {
+              const nextHeight = event.nativeEvent.layout.height;
+
+              if (nextHeight !== statsContentHeight) {
+                setStatsContentHeight(nextHeight);
+              }
+            }}
+            style={[
+              styles.queueDetailsContent,
+              {
+                opacity: statsReveal.interpolate({
+                  inputRange: [0, 0.3, 1],
+                  outputRange: [0, 0, 1]
+                }),
+                transform: [
+                  {
+                    translateY: statsReveal.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-theme.space[12], 0]
+                    })
+                  }
+                ]
+              }
+            ]}
+          >
+            <View style={styles.queueDivider} />
+            <View style={styles.queueStats}>
+              <QueueStat label="Up after" value={upAfter} />
+              <View style={styles.statDivider} />
+              <QueueStat label="Rank" value={rank} />
+              <View style={styles.statDivider} />
+              <QueueStat label="Wait" value={wait} />
+            </View>
+          </Animated.View>
+        </Animated.View>
       </View>
       {errorMessage ? (
         <Text accessibilityLiveRegion="polite" style={styles.errorText}>
@@ -367,8 +458,14 @@ const styles = StyleSheet.create({
     borderColor: theme.color.surface.social,
     borderRadius: theme.radius.card,
     borderWidth: theme.border.quiet,
-    gap: theme.layout.stackDefault,
     padding: theme.layout.cardPadding
+  },
+  queueDetailsContent: {
+    gap: theme.layout.stackDefault,
+    paddingTop: theme.layout.stackDefault
+  },
+  queueDetailsMask: {
+    overflow: "hidden"
   },
   queueDivider: {
     backgroundColor: theme.color.border.subtle,
