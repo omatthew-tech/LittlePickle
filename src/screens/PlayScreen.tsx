@@ -149,24 +149,26 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
       <Text accessibilityRole="header" style={styles.pageTitle}>
         Recommended matches
       </Text>
-      <View accessibilityLabel="Play actions" style={styles.quickActions}>
-        <ActionButton
-          accessibilityLabel="Enter a custom score"
-          icon="score"
-          label="Custom score"
-          onPress={() => setCustomScoreOpen(true)}
-          style={styles.quickAction}
-          variant="text"
-        />
-        <View accessibilityElementsHidden importantForAccessibility="no" style={styles.quickActionDivider} />
-        <ActionButton
-          icon="history"
-          label="Match history"
-          onPress={handleOpenMatchHistory}
-          style={styles.quickAction}
-          variant="text"
-        />
-      </View>
+      {recommendations.length > 0 ? (
+        <View accessibilityLabel="Play actions" style={styles.quickActions}>
+          <ActionButton
+            accessibilityLabel="Enter a custom score"
+            icon="score"
+            label="Custom score"
+            onPress={() => setCustomScoreOpen(true)}
+            style={styles.quickAction}
+            variant="text"
+          />
+          <View accessibilityElementsHidden importantForAccessibility="no" style={styles.quickActionDivider} />
+          <ActionButton
+            icon="history"
+            label="Match history"
+            onPress={handleOpenMatchHistory}
+            style={styles.quickAction}
+            variant="text"
+          />
+        </View>
+      ) : null}
       {errorMessage ? (
         <Text accessibilityLiveRegion="polite" style={styles.errorText}>
           {errorMessage}
