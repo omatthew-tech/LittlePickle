@@ -7,10 +7,11 @@ import { ActionButton } from "./ActionButton";
 type MatchHistoryModalProps = {
   matches: CompletedMatch[];
   onClose: () => void;
+  onEditMatch: (match: CompletedMatch) => void;
   visible: boolean;
 };
 
-export function MatchHistoryModal({ matches, onClose, visible }: MatchHistoryModalProps) {
+export function MatchHistoryModal({ matches, onClose, onEditMatch, visible }: MatchHistoryModalProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -31,9 +32,13 @@ export function MatchHistoryModal({ matches, onClose, visible }: MatchHistoryMod
           </Text>
           <ActionButton label="Close" onPress={onClose} variant="text" />
         </View>
-        <ScrollView contentContainerStyle={styles.matchList} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.matchList}
+          showsVerticalScrollIndicator={false}
+          style={styles.scrollView}
+        >
           {matches.map((match) => (
-            <HistoryMatch key={match.id} match={match} />
+            <HistoryMatch key={match.id} match={match} onEdit={() => onEditMatch(match)} />
           ))}
           {matches.length === 0 ? (
             <Text accessibilityLiveRegion="polite" style={styles.emptyText}>
@@ -46,36 +51,50 @@ export function MatchHistoryModal({ matches, onClose, visible }: MatchHistoryMod
   );
 }
 
-function HistoryMatch({ match }: { match: CompletedMatch }) {
+function HistoryMatch({ match, onEdit }: { match: CompletedMatch; onEdit: () => void }) {
   const teamOneNames = teamNames(match.players, 1);
   const teamTwoNames = teamNames(match.players, 2);
   const winningTeam = winner(match.team_one_score, match.team_two_score);
-  const matchLabel = match.court_number ? `Court ${match.court_number}` : "Completed match";
+  const matchDate = formatMatchDate(match.completed_at ?? match.started_at);
 
   return (
     <View
-      accessibilityLabel={`${matchLabel}. ${teamOneNames}, ${scoreText(match.team_one_score)}. ${teamTwoNames}, ${scoreText(match.team_two_score)}.`}
+      accessible={false}
       accessibilityRole="summary"
       style={styles.match}
     >
       <View style={styles.matchMetadata}>
-        <Text style={styles.matchLabel}>{matchLabel}</Text>
-        <Text style={styles.matchDate}>{formatMatchDate(match.completed_at ?? match.started_at)}</Text>
+        <Text style={styles.matchDate}>{matchDate}</Text>
+        <ActionButton
+          accessibilityLabel={`Edit score for match completed ${matchDate}`}
+          label="Edit"
+          onPress={onEdit}
+          variant="text"
+        />
       </View>
-      <HistoryTeam names={teamOneNames} score={match.team_one_score} winner={winningTeam === 1} />
-      <HistoryTeam names={teamTwoNames} score={match.team_two_score} winner={winningTeam === 2} />
+      <View style={styles.teams}>
+        <HistoryTeam names={teamOneNames} score={match.team_one_score} winner={winningTeam === 1} />
+        <HistoryTeam names={teamTwoNames} score={match.team_two_score} winner={winningTeam === 2} />
+      </View>
     </View>
   );
 }
 
 function HistoryTeam({ names, score, winner: isWinner }: { names: string; score: number | null; winner: boolean }) {
+  const visibleScore = scoreText(score);
+
   return (
-    <View style={styles.teamRow}>
+    <View
+      accessibilityLabel={`${names}, ${visibleScore}${isWinner ? ", winner" : ""}`}
+      accessible
+      style={styles.teamRow}
+    >
       <View style={styles.teamIdentity}>
         <Text style={styles.teamNames}>{names}</Text>
-        {isWinner ? <Text style={styles.winnerLabel}>Winner</Text> : null}
       </View>
-      <Text style={[styles.score, isWinner ? styles.winningScore : null]}>{scoreText(score)}</Text>
+      <View style={styles.scoreGroup}>
+        <Text style={[styles.score, isWinner ? styles.winningScore : null]}>{visibleScore}</Text>
+      </View>
     </View>
   );
 }
@@ -85,7 +104,7 @@ function teamNames(players: ActiveMatchPlayer[], teamNumber: 1 | 2) {
     .filter((player) => player.team_number === teamNumber)
     .sort((first, second) => first.slot_number - second.slot_number)
     .map((player) => player.name)
-    .join(" + ");
+    .join(" & ");
 }
 
 function winner(teamOneScore: number | null, teamTwoScore: number | null): 1 | 2 | null {
@@ -127,35 +146,45 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   match: {
-    borderBottomColor: theme.color.border.subtle,
-    borderBottomWidth: theme.border.quiet,
+    ...theme.shadow.card,
+    backgroundColor: theme.color.surface.card,
+    borderColor: theme.color.border.subtle,
+    borderRadius: theme.radius.card,
+    borderWidth: theme.border.quiet,
     gap: theme.layout.stackDefault,
-    paddingVertical: theme.space[16]
+    padding: theme.layout.cardPadding
   },
   matchDate: {
     ...theme.type.bodySecondary,
     color: theme.color.text.secondary
   },
-  matchLabel: {
-    ...theme.type.metricDetail,
-    color: theme.color.text.secondary
-  },
   matchList: {
+    gap: theme.layout.sectionGap,
     paddingBottom: theme.layout.sectionGap
   },
   matchMetadata: {
     alignItems: "center",
     flexDirection: "row",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    minHeight: theme.size.targetMinimum
   },
   score: {
     ...theme.type.metricRecord,
-    color: theme.color.text.primary
+    color: theme.color.text.primary,
+    includeFontPadding: false
+  },
+  scoreGroup: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.space[4]
+  },
+  scrollView: {
+    flex: 1
   },
   screen: {
     backgroundColor: theme.color.surface.canvas,
     flex: 1,
-    gap: theme.layout.stackDefault,
+    gap: theme.layout.sectionGap,
     paddingHorizontal: theme.layout.screenInset
   },
   teamIdentity: {
@@ -165,21 +194,21 @@ const styles = StyleSheet.create({
   },
   teamNames: {
     ...theme.type.titleCard,
-    color: theme.color.text.primary
+    color: theme.color.text.primary,
+    flexShrink: 1
   },
   teamRow: {
     alignItems: "center",
     flexDirection: "row",
     gap: theme.layout.inlineDefault,
-    minHeight: theme.size.targetMinimum
+    justifyContent: "space-between"
+  },
+  teams: {
+    gap: theme.layout.stackCompact
   },
   title: {
     ...theme.type.headingPage,
     color: theme.color.text.primary
-  },
-  winnerLabel: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.selected
   },
   winningScore: {
     color: theme.color.text.selected

@@ -16,6 +16,7 @@ import {
 } from "../lib/matchRecommendationMapping";
 import { playerDisplayNames } from "../lib/playerDisplayNames";
 import { usePlaySession } from "../lib/usePlaySession";
+import type { CompletedMatch } from "../types/matchFlow";
 
 type PlayScreenProps = {
   currentPlayerId?: string | null;
@@ -30,6 +31,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     canStartRecommendedMatch,
     completedMatches,
     completeActiveMatch,
+    editCompletedMatchScore,
     errorMessage,
     live,
     loading,
@@ -42,6 +44,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     startRecommendedMatch
   } = usePlaySession(sessionId);
   const [customScoreOpen, setCustomScoreOpen] = useState(false);
+  const [historyEditMatchId, setHistoryEditMatchId] = useState<string | null>(null);
   const [matchHistoryOpen, setMatchHistoryOpen] = useState(false);
   const [scoreMatchId, setScoreMatchId] = useState<string | null>(null);
   const displayNamesByPlayerId = useMemo(
@@ -53,6 +56,14 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
 
     return scoreMatch ? activeMatchTeams(scoreMatch, displayNamesByPlayerId) : null;
   }, [activeMatches, displayNamesByPlayerId, scoreMatchId]);
+  const historyEditMatch = useMemo(
+    () => completedMatches.find((match) => match.id === historyEditMatchId) ?? null,
+    [completedMatches, historyEditMatchId]
+  );
+  const historyEditTeams = useMemo(
+    () => historyEditMatch ? activeMatchTeams(historyEditMatch, displayNamesByPlayerId) : null,
+    [displayNamesByPlayerId, historyEditMatch]
+  );
 
   useEffect(() => {
     if (sessionEnded) {
@@ -96,6 +107,32 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
   function handleOpenMatchHistory() {
     setMatchHistoryOpen(true);
     void refresh();
+  }
+
+  function handleEditHistoryMatch(match: CompletedMatch) {
+    setMatchHistoryOpen(false);
+    setHistoryEditMatchId(match.id);
+  }
+
+  function handleCloseHistoryEdit() {
+    setHistoryEditMatchId(null);
+    setMatchHistoryOpen(true);
+  }
+
+  async function handleSubmitHistoryEdit(teamOneScore: number, teamTwoScore: number) {
+    if (!historyEditMatchId) {
+      return;
+    }
+
+    const saved = await editCompletedMatchScore(historyEditMatchId, teamOneScore, teamTwoScore);
+
+    if (!saved) {
+      Alert.alert("Could not update score", "Please try again.");
+      return;
+    }
+
+    setHistoryEditMatchId(null);
+    setMatchHistoryOpen(true);
   }
 
   return (
@@ -172,7 +209,19 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
           visible
         />
       ) : null}
+      {historyEditMatch && historyEditTeams ? (
+        <ScoreReportModal
+          initialTeamOneScore={historyEditMatch.team_one_score}
+          initialTeamTwoScore={historyEditMatch.team_two_score}
+          onClose={handleCloseHistoryEdit}
+          onSubmit={handleSubmitHistoryEdit}
+          teams={historyEditTeams}
+          title="Edit score"
+          visible
+        />
+      ) : null}
       <CustomScoreModal
+        currentPlayerId={currentPlayerId}
         onClose={() => setCustomScoreOpen(false)}
         onSubmit={recordCustomMatch}
         players={players}
@@ -181,6 +230,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
       <MatchHistoryModal
         matches={completedMatches}
         onClose={() => setMatchHistoryOpen(false)}
+        onEditMatch={handleEditHistoryMatch}
         visible={matchHistoryOpen}
       />
     </ScrollView>

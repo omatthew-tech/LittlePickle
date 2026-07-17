@@ -39,6 +39,12 @@ export type UpdateOrganizationPlayerInput = {
 
 export type OrganizationMemberRole = "admin" | "player";
 
+export type UpdatedCompletedMatchScore = {
+  match_id: string;
+  team_one_score: number;
+  team_two_score: number;
+};
+
 export type OrganizationSummary = {
   id: string;
   location_text?: string | null;
@@ -291,6 +297,14 @@ export async function getActiveMatches(sessionId: string) {
 export async function getCompletedMatches(sessionId: string) {
   return rpc<CompletedMatchesResponse>("completed_matches", {
     p_session_id: sessionId
+  });
+}
+
+export async function updateCompletedMatchScore(matchId: string, teamOneScore: number, teamTwoScore: number) {
+  return rpc<UpdatedCompletedMatchScore>("update_completed_match_score", {
+    p_match_id: matchId,
+    p_team_one_score: teamOneScore,
+    p_team_two_score: teamTwoScore
   });
 }
 

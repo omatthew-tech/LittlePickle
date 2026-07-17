@@ -11,12 +11,14 @@ import {
 } from "react-native";
 import type { Player } from "../data/sampleClub";
 import { theme } from "../design/theme";
+import { playerDisplayNames } from "../lib/playerDisplayNames";
 import type { CustomMatchRequest } from "../types/matchFlow";
 import { ActionButton } from "./ActionButton";
 import { PlayerRow } from "./PlayerRow";
 import { SearchField } from "./SearchField";
 
 type CustomScoreModalProps = {
+  currentPlayerId?: string | null;
   onClose: () => void;
   onSubmit: (request: CustomMatchRequest) => Promise<boolean>;
   players: Player[];
@@ -30,7 +32,13 @@ type PlayerSlot = 0 | 1 | 2 | 3;
 const emptyQueries = (): PlayerQueries => ["", "", "", ""];
 const emptyPlayerIds = (): SelectedPlayerIds => [null, null, null, null];
 
-export function CustomScoreModal({ onClose, onSubmit, players, visible }: CustomScoreModalProps) {
+export function CustomScoreModal({
+  currentPlayerId = null,
+  onClose,
+  onSubmit,
+  players,
+  visible
+}: CustomScoreModalProps) {
   const [focusedTeam, setFocusedTeam] = useState<1 | 2 | null>(null);
   const [playerQueries, setPlayerQueries] = useState<PlayerQueries>(emptyQueries);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<SelectedPlayerIds>(emptyPlayerIds);
@@ -41,6 +49,10 @@ export function CustomScoreModal({ onClose, onSubmit, players, visible }: Custom
   const eligiblePlayers = useMemo(
     () => players.filter((player) => player.inSession && !player.isPlaying),
     [players]
+  );
+  const displayNamesByPlayerId = useMemo(
+    () => playerDisplayNames(players, currentPlayerId),
+    [currentPlayerId, players]
   );
 
   useEffect(() => {
@@ -60,6 +72,8 @@ export function CustomScoreModal({ onClose, onSubmit, players, visible }: Custom
   const parsedTeamOneScore = Number.parseInt(teamOneScore, 10);
   const parsedTeamTwoScore = Number.parseInt(teamTwoScore, 10);
   const chosenPlayerIds = selectedPlayerIds.filter((playerId): playerId is string => Boolean(playerId));
+  const teamOnePlayersSelected = Boolean(selectedPlayerIds[0] && selectedPlayerIds[1]);
+  const teamTwoPlayersSelected = Boolean(selectedPlayerIds[2] && selectedPlayerIds[3]);
   const canSubmit =
     chosenPlayerIds.length === 4 &&
     new Set(chosenPlayerIds).size === 4 &&
@@ -94,6 +108,11 @@ export function CustomScoreModal({ onClose, onSubmit, players, visible }: Custom
     setSubmissionError(null);
   }
 
+  function editPlayer(slot: PlayerSlot) {
+    setSelectedPlayerIds((previousIds) => replaceTupleValue(previousIds, slot, null));
+    setSubmissionError(null);
+  }
+
   function playerMatches(slot: PlayerSlot) {
     const normalizedQuery = playerQueries[slot].trim().toLowerCase();
 
@@ -116,20 +135,35 @@ export function CustomScoreModal({ onClose, onSubmit, players, visible }: Custom
   function renderPlayerPicker(slot: PlayerSlot, label: string) {
     const matches = playerMatches(slot);
     const hasQuery = Boolean(playerQueries[slot].trim());
-    const selected = Boolean(selectedPlayerIds[slot]);
+    const selectedPlayer = players.find((player) => player.id === selectedPlayerIds[slot]);
+
+    if (selectedPlayer) {
+      return (
+        <View style={styles.playerPicker}>
+          <PlayerRow
+            accessibilityName={selectedPlayer.name}
+            action="edit"
+            avatarInitials={selectedPlayer.initials}
+            avatarUrl={selectedPlayer.avatarUrl}
+            density="compact"
+            name={displayNamesByPlayerId.get(selectedPlayer.id) ?? selectedPlayer.name}
+            onAction={() => editPlayer(slot)}
+            showDivider={false}
+          />
+        </View>
+      );
+    }
 
     return (
       <View style={styles.playerPicker}>
-        <Text style={styles.playerLabel}>{label}</Text>
         <SearchField
           disabled={submitting}
           label={`${label} name`}
           onChangeText={(query) => updatePlayerQuery(slot, query)}
-          placeholder="Search players"
+          placeholder="Add player"
           scope="player"
           value={playerQueries[slot]}
         />
-        {selected ? <Text style={styles.selectedLabel}>Player selected</Text> : null}
         {matches.length > 0 ? (
           <View accessibilityLabel={`${label} search results`} accessibilityRole="list" style={styles.searchResults}>
             {matches.map((player, index) => (
@@ -140,14 +174,14 @@ export function CustomScoreModal({ onClose, onSubmit, players, visible }: Custom
                 avatarUrl={player.avatarUrl}
                 density="compact"
                 key={player.id}
-                name={player.name}
+                name={displayNamesByPlayerId.get(player.id) ?? player.name}
                 onSelectionChange={() => selectPlayer(slot, player)}
                 showDivider={index < matches.length - 1}
               />
             ))}
           </View>
         ) : null}
-        {hasQuery && !selected && matches.length === 0 ? (
+        {hasQuery && matches.length === 0 ? (
           <Text accessibilityLiveRegion="polite" style={styles.noResults}>
             No available current players found.
           </Text>
@@ -196,9 +230,6 @@ export function CustomScoreModal({ onClose, onSubmit, players, visible }: Custom
             <Text accessibilityRole="header" style={styles.title}>
               Custom score
             </Text>
-            <Text style={styles.helpText}>
-              Search for four current players and enter the final score.
-            </Text>
 
             {eligiblePlayers.length < 4 ? (
               <Text accessibilityLiveRegion="polite" style={styles.availabilityMessage}>
@@ -207,19 +238,18 @@ export function CustomScoreModal({ onClose, onSubmit, players, visible }: Custom
             ) : null}
 
             <View style={styles.teamPanel}>
-              <View style={styles.teamHeading}>
-                <Text style={styles.teamTitle}>Team 1</Text>
-                <ScoreInput
-                  focused={focusedTeam === 1}
-                  label="Team 1 score"
-                  onBlur={() => setFocusedTeam(null)}
-                  onChangeScore={setTeamOneScore}
-                  onFocus={() => setFocusedTeam(1)}
-                  score={teamOneScore}
-                />
+              <View style={[styles.playerFields, teamOnePlayersSelected ? styles.selectedPlayerFields : null]}>
+                {renderPlayerPicker(0, "Player 1")}
+                {renderPlayerPicker(1, "Player 2")}
               </View>
-              {renderPlayerPicker(0, "Player 1")}
-              {renderPlayerPicker(1, "Player 2")}
+              <ScoreInput
+                focused={focusedTeam === 1}
+                label="Team 1 score"
+                onBlur={() => setFocusedTeam(null)}
+                onChangeScore={setTeamOneScore}
+                onFocus={() => setFocusedTeam(1)}
+                score={teamOneScore}
+              />
             </View>
 
             <View style={styles.versusRow}>
@@ -231,19 +261,18 @@ export function CustomScoreModal({ onClose, onSubmit, players, visible }: Custom
             </View>
 
             <View style={styles.teamPanel}>
-              <View style={styles.teamHeading}>
-                <Text style={styles.teamTitle}>Team 2</Text>
-                <ScoreInput
-                  focused={focusedTeam === 2}
-                  label="Team 2 score"
-                  onBlur={() => setFocusedTeam(null)}
-                  onChangeScore={setTeamTwoScore}
-                  onFocus={() => setFocusedTeam(2)}
-                  score={teamTwoScore}
-                />
+              <View style={[styles.playerFields, teamTwoPlayersSelected ? styles.selectedPlayerFields : null]}>
+                {renderPlayerPicker(2, "Player 3")}
+                {renderPlayerPicker(3, "Player 4")}
               </View>
-              {renderPlayerPicker(2, "Player 3")}
-              {renderPlayerPicker(3, "Player 4")}
+              <ScoreInput
+                focused={focusedTeam === 2}
+                label="Team 2 score"
+                onBlur={() => setFocusedTeam(null)}
+                onChangeScore={setTeamTwoScore}
+                onFocus={() => setFocusedTeam(2)}
+                score={teamTwoScore}
+              />
             </View>
 
             {submissionError ? (
@@ -348,11 +377,6 @@ const styles = StyleSheet.create({
     ...theme.type.bodySecondary,
     color: theme.color.feedback.error
   },
-  helpText: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.secondary,
-    textAlign: "center"
-  },
   modalContent: {
     flexGrow: 1,
     justifyContent: "center",
@@ -362,12 +386,13 @@ const styles = StyleSheet.create({
     ...theme.type.bodySecondary,
     color: theme.color.text.secondary
   },
-  playerLabel: {
-    ...theme.type.metricDetail,
-    color: theme.color.text.secondary
-  },
   playerPicker: {
     gap: theme.space[4]
+  },
+  playerFields: {
+    flex: 1,
+    gap: theme.layout.stackDefault,
+    minWidth: 0
   },
   scoreInput: {
     ...theme.type.metricScore,
@@ -399,25 +424,17 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.color.border.subtle,
     borderBottomWidth: theme.border.quiet
   },
-  selectedLabel: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.selected
-  },
-  teamHeading: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between"
+  selectedPlayerFields: {
+    gap: theme.space[0]
   },
   teamPanel: {
+    alignItems: "center",
     borderColor: theme.color.border.subtle,
     borderRadius: theme.radius.control,
     borderWidth: theme.border.quiet,
+    flexDirection: "row",
     gap: theme.layout.stackDefault,
     padding: theme.space[12]
-  },
-  teamTitle: {
-    ...theme.type.headingSection,
-    color: theme.color.text.primary
   },
   title: {
     ...theme.type.headingPage,

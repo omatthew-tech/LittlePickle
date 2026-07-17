@@ -2,7 +2,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "../design/theme";
 import { RallyIcon } from "./RallyIcon";
 
-type PlayerAction = "add" | "remove" | "pass" | "none";
+type PlayerAction = "add" | "edit" | "remove" | "pass" | "none";
 
 type PlayerRowProps = {
   action?: PlayerAction;
@@ -33,6 +33,29 @@ export function PlayerRow({
 }: PlayerRowProps) {
   const selectable = Boolean(onSelectionChange);
   const accessiblePlayerName = accessibilityName ?? name;
+  const actionControl =
+    action !== "none" ? (
+      <Pressable
+        accessibilityLabel={`${labelFor(action)} ${accessiblePlayerName}`}
+        accessibilityRole="button"
+        hitSlop={action === "edit" ? theme.space[16] : undefined}
+        onPress={() => onAction?.(action)}
+        style={({ pressed }) => [
+          styles.action,
+          action === "edit" ? styles.editAction : null,
+          pressed ? styles.actionPressed : null
+        ]}
+      >
+        {action === "add" ? (
+          <RallyIcon color={theme.color.action.primary} name="add-player" size={theme.size.iconCompact} />
+        ) : null}
+        {action === "edit" ? (
+          <RallyIcon color={theme.color.action.primary} name="pencil" size={theme.size.iconCompact} />
+        ) : (
+          <Text style={styles.actionText}>{labelFor(action)}</Text>
+        )}
+      </Pressable>
+    ) : null;
 
   return (
     <Pressable
@@ -60,22 +83,13 @@ export function PlayerRow({
         )}
       </View>
       <View style={styles.identity}>
-        <Text style={styles.name}>{name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>{name}</Text>
+          {action === "edit" ? actionControl : null}
+        </View>
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
       </View>
-      {action !== "none" ? (
-        <Pressable
-          accessibilityLabel={`${labelFor(action)} ${accessiblePlayerName}`}
-          accessibilityRole="button"
-          onPress={() => onAction?.(action)}
-          style={({ pressed }) => [styles.action, pressed ? styles.actionPressed : null]}
-        >
-          {action === "add" ? (
-            <RallyIcon color={theme.color.action.primary} name="add-player" size={theme.size.iconCompact} />
-          ) : null}
-          <Text style={styles.actionText}>{labelFor(action)}</Text>
-        </Pressable>
-      ) : null}
+      {action !== "none" && action !== "edit" ? actionControl : null}
     </Pressable>
   );
 }
@@ -93,6 +107,8 @@ function labelFor(action: Exclude<PlayerAction, "none">) {
   switch (action) {
     case "add":
       return "Add";
+    case "edit":
+      return "Edit";
     case "remove":
       return "Remove";
     case "pass":
@@ -117,6 +133,11 @@ const styles = StyleSheet.create({
   actionText: {
     ...theme.type.labelAction,
     color: theme.color.action.primary
+  },
+  editAction: {
+    marginLeft: theme.space[4],
+    minWidth: theme.size.iconCompact,
+    paddingHorizontal: theme.space[0]
   },
   avatar: {
     alignItems: "center",
@@ -149,6 +170,11 @@ const styles = StyleSheet.create({
     ...theme.type.titleCard,
     color: theme.color.text.primary,
     flexShrink: 1
+  },
+  nameRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    minWidth: 0
   },
   row: {
     alignItems: "center",

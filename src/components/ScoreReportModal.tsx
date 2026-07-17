@@ -15,9 +15,12 @@ import { ActionButton } from "./ActionButton";
 import { PlayerRow } from "./PlayerRow";
 
 type ScoreReportModalProps = {
+  initialTeamOneScore?: number | null;
+  initialTeamTwoScore?: number | null;
   onClose: () => void;
   onSubmit: (teamOneScore: number, teamTwoScore: number) => void;
   teams: [MatchTeam, MatchTeam];
+  title?: string;
   visible: boolean;
 };
 
@@ -30,18 +33,26 @@ type TeamScorePanelProps = {
   team: MatchTeam;
 };
 
-export function ScoreReportModal({ onClose, onSubmit, teams, visible }: ScoreReportModalProps) {
+export function ScoreReportModal({
+  initialTeamOneScore = null,
+  initialTeamTwoScore = null,
+  onClose,
+  onSubmit,
+  teams,
+  title = "Report score",
+  visible
+}: ScoreReportModalProps) {
   const [teamOneScore, setTeamOneScore] = useState("");
   const [teamTwoScore, setTeamTwoScore] = useState("");
   const [focusedTeam, setFocusedTeam] = useState<1 | 2 | null>(null);
 
   useEffect(() => {
     if (visible) {
-      setTeamOneScore("");
-      setTeamTwoScore("");
+      setTeamOneScore(scoreInputValue(initialTeamOneScore));
+      setTeamTwoScore(scoreInputValue(initialTeamTwoScore));
       setFocusedTeam(null);
     }
-  }, [visible]);
+  }, [initialTeamOneScore, initialTeamTwoScore, visible]);
 
   const parsedTeamOneScore = Number.parseInt(teamOneScore, 10);
   const parsedTeamTwoScore = Number.parseInt(teamTwoScore, 10);
@@ -66,7 +77,7 @@ export function ScoreReportModal({ onClose, onSubmit, teams, visible }: ScoreRep
         >
           <View accessibilityViewIsModal style={styles.dialog}>
             <Text accessibilityRole="header" style={styles.title}>
-              Report score
+              {title}
             </Text>
 
             <View style={styles.teams}>
@@ -165,6 +176,10 @@ function TeamScorePanel({
 
 function numericScore(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function scoreInputValue(score: number | null) {
+  return score === null ? "" : String(score);
 }
 
 function playerInitials(player: MatchPlayer) {

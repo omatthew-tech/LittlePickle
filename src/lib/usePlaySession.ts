@@ -10,6 +10,7 @@ import {
   getSessionRecommendationSnapshot,
   removePlayerFromSession,
   searchLeaguePlayerNames,
+  updateCompletedMatchScore as persistCompletedMatchScore,
   type LeaguePlayerNameMatch
 } from "./littlePickleData";
 import {
@@ -45,6 +46,7 @@ type PlaySessionState = {
   completedMatches: CompletedMatch[];
   completeActiveMatch: (matchId: string, teamOneScore: number, teamTwoScore: number) => Promise<void>;
   courtCount: number | null;
+  editCompletedMatchScore: (matchId: string, teamOneScore: number, teamTwoScore: number) => Promise<boolean>;
   live: boolean;
   loading: boolean;
   players: Player[];
@@ -372,6 +374,40 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
     [liveEnabled, readOnly, resolvedSessionId]
   );
 
+  const editCompletedMatchScore = useCallback(
+    async (matchId: string, teamOneScore: number, teamTwoScore: number) => {
+      if (!liveEnabled || !resolvedSessionId) {
+        setCompletedMatches((previousMatches) =>
+          previousMatches.map((match) =>
+            match.id === matchId
+              ? { ...match, team_one_score: teamOneScore, team_two_score: teamTwoScore }
+              : match
+          )
+        );
+        setErrorMessage(null);
+        return true;
+      }
+
+      if (readOnly) {
+        setErrorMessage("This queue is view only.");
+        return false;
+      }
+
+      setErrorMessage(null);
+
+      try {
+        await persistCompletedMatchScore(matchId, teamOneScore, teamTwoScore);
+        const completed = await getCompletedMatches(resolvedSessionId);
+        setCompletedMatches(completed.matches);
+        return true;
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Could not update score.");
+        return false;
+      }
+    },
+    [liveEnabled, readOnly, resolvedSessionId]
+  );
+
   const recordCustomMatch = useCallback(
     async (request: CustomMatchRequest) => {
       if (!liveEnabled || !resolvedSessionId) {
@@ -442,6 +478,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       completedMatches,
       completeActiveMatch,
       courtCount,
+      editCompletedMatchScore,
       errorMessage,
       live: liveEnabled,
       loading,
@@ -461,6 +498,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       completedMatches,
       completeActiveMatch,
       courtCount,
+      editCompletedMatchScore,
       errorMessage,
       liveEnabled,
       loading,
