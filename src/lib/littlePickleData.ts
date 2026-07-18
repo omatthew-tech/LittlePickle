@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import type {
   ActiveMatchesResponse,
+  CompleteMatchRequest,
   CompletedMatchesResponse,
   RecommendationResponse,
   RecommendationSnapshot,
@@ -39,10 +40,12 @@ export type UpdateOrganizationPlayerInput = {
 
 export type OrganizationMemberRole = "admin" | "player";
 
-export type UpdatedCompletedMatchScore = {
+export type UpdatedCompletedMatchResult = {
   match_id: string;
-  team_one_score: number;
-  team_two_score: number;
+  result_mode: "score" | "win_loss";
+  team_one_score: number | null;
+  team_two_score: number | null;
+  winning_team: 1 | 2 | null;
 };
 
 export type OrganizationSummary = {
@@ -52,6 +55,7 @@ export type OrganizationSummary = {
   slug: string;
   number_of_courts: number;
   role: OrganizationMemberRole;
+  score_mode_enabled: boolean;
 };
 
 export type OrganizationSearchResult = {
@@ -188,6 +192,13 @@ export async function updateOrganizationSettings(input: UpdateOrganizationInput)
   });
 }
 
+export async function setOrganizationScoreMode(organizationId: string, scoreModeEnabled: boolean) {
+  return rpc<OrganizationSummary>("set_organization_score_mode", {
+    p_organization_id: organizationId,
+    p_score_mode_enabled: scoreModeEnabled
+  });
+}
+
 export async function setOrganizationMemberRole(
   organizationId: string,
   userId: string,
@@ -300,11 +311,13 @@ export async function getCompletedMatches(sessionId: string) {
   });
 }
 
-export async function updateCompletedMatchScore(matchId: string, teamOneScore: number, teamTwoScore: number) {
-  return rpc<UpdatedCompletedMatchScore>("update_completed_match_score", {
+export async function updateCompletedMatchResult(matchId: string, request: CompleteMatchRequest) {
+  return rpc<UpdatedCompletedMatchResult>("update_completed_match_result", {
     p_match_id: matchId,
-    p_team_one_score: teamOneScore,
-    p_team_two_score: teamTwoScore
+    p_result_mode: request.result_mode,
+    p_team_one_score: request.result_mode === "score" ? request.team_one_score : null,
+    p_team_two_score: request.result_mode === "score" ? request.team_two_score : null,
+    p_winning_team: request.result_mode === "win_loss" ? request.winning_team : null
   });
 }
 
@@ -392,6 +405,10 @@ function friendlyRpcMessage(functionName: string, error: RpcError) {
 
   if (searchable.includes("not allowed") || error.code === "42501") {
     return "You do not have permission to make that league change.";
+  }
+
+  if (searchable.includes("score mode changed") || error.code === "40001") {
+    return "League score mode changed. Reopen the result form and try again.";
   }
 
   return [message, details, hint].filter(Boolean).join(" ") || `Could not call ${functionName}.`;

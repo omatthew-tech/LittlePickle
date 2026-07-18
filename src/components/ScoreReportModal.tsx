@@ -3,6 +3,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +11,7 @@ import {
   View
 } from "react-native";
 import { theme } from "../design/theme";
+import type { MatchResultInput, ResultMode } from "../types/matchFlow";
 import type { MatchPlayer, MatchTeam } from "./MatchCard";
 import { ActionButton } from "./ActionButton";
 import { PlayerRow } from "./PlayerRow";
@@ -17,8 +19,10 @@ import { PlayerRow } from "./PlayerRow";
 type ScoreReportModalProps = {
   initialTeamOneScore?: number | null;
   initialTeamTwoScore?: number | null;
+  initialWinningTeam?: 1 | 2 | null;
   onClose: () => void;
-  onSubmit: (teamOneScore: number, teamTwoScore: number) => void;
+  onSubmit: (result: MatchResultInput) => Promise<boolean>;
+  resultMode: ResultMode;
   teams: [MatchTeam, MatchTeam];
   title?: string;
   visible: boolean;
@@ -36,8 +40,10 @@ type TeamScorePanelProps = {
 export function ScoreReportModal({
   initialTeamOneScore = null,
   initialTeamTwoScore = null,
+  initialWinningTeam = null,
   onClose,
   onSubmit,
+  resultMode,
   teams,
   title = "Report score",
   visible
@@ -45,22 +51,51 @@ export function ScoreReportModal({
   const [teamOneScore, setTeamOneScore] = useState("");
   const [teamTwoScore, setTeamTwoScore] = useState("");
   const [focusedTeam, setFocusedTeam] = useState<1 | 2 | null>(null);
+  const [selectedWinner, setSelectedWinner] = useState<1 | 2 | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setTeamOneScore(scoreInputValue(initialTeamOneScore));
       setTeamTwoScore(scoreInputValue(initialTeamTwoScore));
       setFocusedTeam(null);
+      setSelectedWinner(initialWinningTeam);
+      setSubmitting(false);
     }
-  }, [initialTeamOneScore, initialTeamTwoScore, visible]);
+  }, [initialTeamOneScore, initialTeamTwoScore, initialWinningTeam, resultMode, visible]);
 
   const parsedTeamOneScore = Number.parseInt(teamOneScore, 10);
   const parsedTeamTwoScore = Number.parseInt(teamTwoScore, 10);
-  const canSubmit =
+  const scoresAreComplete =
     teamOneScore.length > 0 &&
     teamTwoScore.length > 0 &&
     Number.isInteger(parsedTeamOneScore) &&
     Number.isInteger(parsedTeamTwoScore);
+  const scoresAreTied = scoresAreComplete && parsedTeamOneScore === parsedTeamTwoScore;
+  const canSubmit =
+    !submitting &&
+    (resultMode === "score" ? scoresAreComplete && !scoresAreTied : selectedWinner !== null);
+
+  async function handleSubmit() {
+    if (!canSubmit) {
+      return;
+    }
+
+    setSubmitting(true);
+    await onSubmit(
+      resultMode === "score"
+        ? {
+            resultMode: "score",
+            teamOneScore: parsedTeamOneScore,
+            teamTwoScore: parsedTeamTwoScore
+          }
+        : {
+            resultMode: "win_loss",
+            winningTeam: selectedWinner!
+          }
+    );
+    setSubmitting(false);
+  }
 
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
@@ -81,14 +116,23 @@ export function ScoreReportModal({
             </Text>
 
             <View style={styles.teams}>
-              <TeamScorePanel
-                focused={focusedTeam === 1}
-                onBlur={() => setFocusedTeam(null)}
-                onChangeScore={(value) => setTeamOneScore(numericScore(value))}
-                onFocus={() => setFocusedTeam(1)}
-                score={teamOneScore}
-                team={teams[0]}
-              />
+              {resultMode === "score" ? (
+                <TeamScorePanel
+                  focused={focusedTeam === 1}
+                  onBlur={() => setFocusedTeam(null)}
+                  onChangeScore={(value) => setTeamOneScore(numericScore(value))}
+                  onFocus={() => setFocusedTeam(1)}
+                  score={teamOneScore}
+                  team={teams[0]}
+                />
+              ) : (
+                <TeamWinnerPanel
+                  onSelect={() => setSelectedWinner(1)}
+                  selected={selectedWinner === 1}
+                  team={teams[0]}
+                  teamNumber={1}
+                />
+              )}
 
               <View style={styles.versusRow}>
                 <View accessibilityElementsHidden importantForAccessibility="no" style={styles.versusLine} />
@@ -98,15 +142,30 @@ export function ScoreReportModal({
                 <View accessibilityElementsHidden importantForAccessibility="no" style={styles.versusLine} />
               </View>
 
-              <TeamScorePanel
-                focused={focusedTeam === 2}
-                onBlur={() => setFocusedTeam(null)}
-                onChangeScore={(value) => setTeamTwoScore(numericScore(value))}
-                onFocus={() => setFocusedTeam(2)}
-                score={teamTwoScore}
-                team={teams[1]}
-              />
+              {resultMode === "score" ? (
+                <TeamScorePanel
+                  focused={focusedTeam === 2}
+                  onBlur={() => setFocusedTeam(null)}
+                  onChangeScore={(value) => setTeamTwoScore(numericScore(value))}
+                  onFocus={() => setFocusedTeam(2)}
+                  score={teamTwoScore}
+                  team={teams[1]}
+                />
+              ) : (
+                <TeamWinnerPanel
+                  onSelect={() => setSelectedWinner(2)}
+                  selected={selectedWinner === 2}
+                  team={teams[1]}
+                  teamNumber={2}
+                />
+              )}
             </View>
+
+            {scoresAreTied && resultMode === "score" ? (
+              <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+                Scores cannot be tied.
+              </Text>
+            ) : null}
 
             <View style={styles.actions}>
               <ActionButton
@@ -117,8 +176,8 @@ export function ScoreReportModal({
               />
               <ActionButton
                 disabled={!canSubmit}
-                label="Save score"
-                onPress={() => onSubmit(parsedTeamOneScore, parsedTeamTwoScore)}
+                label={submitting ? "Saving..." : resultMode === "score" ? "Save score" : "Save result"}
+                onPress={() => void handleSubmit()}
                 style={styles.actionButton}
               />
             </View>
@@ -126,6 +185,53 @@ export function ScoreReportModal({
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function TeamWinnerPanel({
+  onSelect,
+  selected,
+  team,
+  teamNumber
+}: {
+  onSelect: () => void;
+  selected: boolean;
+  team: MatchTeam;
+  teamNumber: 1 | 2;
+}) {
+  const names = team.players.map((player) => player.accessibilityName ?? player.name).join(" and ");
+
+  return (
+    <Pressable
+      accessibilityLabel={`Select ${names} as the winning team`}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      onPress={onSelect}
+      style={({ pressed }) => [
+        styles.teamPanel,
+        styles.winnerPanel,
+        selected ? styles.winnerPanelSelected : null,
+        pressed ? styles.winnerPanelPressed : null
+      ]}
+    >
+      <View style={styles.playerList}>
+        {team.players.map((player) => (
+          <PlayerRow
+            accessibilityName={player.accessibilityName}
+            action="none"
+            avatarInitials={playerInitials(player)}
+            avatarUrl={player.avatarUrl}
+            density="compact"
+            key={player.id}
+            name={player.name}
+            showDivider={false}
+          />
+        ))}
+      </View>
+      <Text style={[styles.winnerChoiceText, selected ? styles.winnerChoiceTextSelected : null]}>
+        {selected ? "Selected winner" : `Team ${teamNumber} won`}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -217,6 +323,11 @@ const styles = StyleSheet.create({
     padding: theme.layout.screenInset,
     width: "100%"
   },
+  errorText: {
+    ...theme.type.bodySecondary,
+    color: theme.color.feedback.error,
+    textAlign: "center"
+  },
   modalContent: {
     flexGrow: 1,
     justifyContent: "center",
@@ -282,5 +393,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: theme.space[8]
+  },
+  winnerChoiceText: {
+    ...theme.type.labelAction,
+    color: theme.color.action.primary,
+    textAlign: "center"
+  },
+  winnerChoiceTextSelected: {
+    color: theme.color.text.selected
+  },
+  winnerPanel: {
+    minHeight: theme.size.targetMinimum
+  },
+  winnerPanelPressed: {
+    backgroundColor: theme.color.surface.info
+  },
+  winnerPanelSelected: {
+    backgroundColor: theme.color.surface.info,
+    borderColor: theme.color.border.active,
+    borderWidth: theme.border.focus
   }
 });

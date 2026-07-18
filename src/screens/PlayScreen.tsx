@@ -16,7 +16,7 @@ import {
 } from "../lib/matchRecommendationMapping";
 import { playerDisplayNames } from "../lib/playerDisplayNames";
 import { usePlaySession } from "../lib/usePlaySession";
-import type { CompletedMatch } from "../types/matchFlow";
+import type { CompletedMatch, MatchResultInput } from "../types/matchFlow";
 
 type PlayScreenProps = {
   currentPlayerId?: string | null;
@@ -31,7 +31,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     canStartRecommendedMatch,
     completedMatches,
     completeActiveMatch,
-    editCompletedMatchScore,
+    editCompletedMatchResult,
     errorMessage,
     live,
     loading,
@@ -40,6 +40,8 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     recommendations,
     recordCustomMatch,
     refresh,
+    refreshScoreMode,
+    scoreModeEnabled,
     sessionEnded,
     startRecommendedMatch
   } = usePlaySession(sessionId);
@@ -94,22 +96,67 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     await startRecommendedMatch(matchId);
   }
 
-  async function handleSubmitScore(teamOneScore: number, teamTwoScore: number) {
+  async function handleSubmitResult(result: MatchResultInput) {
     if (!scoreMatchId) {
+      return false;
+    }
+
+    const saved = await completeActiveMatch(scoreMatchId, result);
+
+    if (saved) {
+      setScoreMatchId(null);
+      return true;
+    }
+
+    Alert.alert(
+      "Result not saved",
+      "The league's score mode may have changed. The form has been refreshed; review it and try again."
+    );
+    return false;
+  }
+
+  async function handleOpenResult(matchId: string) {
+    const latestMode = await refreshScoreMode();
+
+    if (latestMode === null) {
+      Alert.alert("Could not open result", "Check your connection and try again.");
       return;
     }
 
-    const matchId = scoreMatchId;
-    setScoreMatchId(null);
-    await completeActiveMatch(matchId, teamOneScore, teamTwoScore);
+    setScoreMatchId(matchId);
   }
 
-  function handleOpenMatchHistory() {
+  async function handleOpenCustomScore() {
+    const latestMode = await refreshScoreMode();
+
+    if (latestMode === null) {
+      Alert.alert("Could not open custom score", "Check your connection and try again.");
+      return;
+    }
+
+    setCustomScoreOpen(true);
+  }
+
+  async function handleOpenMatchHistory() {
+    const latestMode = await refreshScoreMode();
+
+    if (latestMode === null) {
+      Alert.alert("Could not open match history", "Check your connection and try again.");
+      return;
+    }
+
+    await refresh();
     setMatchHistoryOpen(true);
-    void refresh();
   }
 
-  function handleEditHistoryMatch(match: CompletedMatch) {
+  async function handleEditHistoryMatch(match: CompletedMatch) {
+    const latestMode = await refreshScoreMode();
+
+    if (latestMode === null) {
+      Alert.alert("Could not edit result", "Check your connection and try again.");
+      return;
+    }
+
     setMatchHistoryOpen(false);
     setHistoryEditMatchId(match.id);
   }
@@ -119,20 +166,24 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     setMatchHistoryOpen(true);
   }
 
-  async function handleSubmitHistoryEdit(teamOneScore: number, teamTwoScore: number) {
+  async function handleSubmitHistoryEdit(result: MatchResultInput) {
     if (!historyEditMatchId) {
-      return;
+      return false;
     }
 
-    const saved = await editCompletedMatchScore(historyEditMatchId, teamOneScore, teamTwoScore);
+    const saved = await editCompletedMatchResult(historyEditMatchId, result);
 
     if (!saved) {
-      Alert.alert("Could not update score", "Please try again.");
-      return;
+      Alert.alert(
+        "Result not saved",
+        "The league's score mode may have changed. The form has been refreshed; review it and try again."
+      );
+      return false;
     }
 
     setHistoryEditMatchId(null);
     setMatchHistoryOpen(true);
+    return true;
   }
 
   return (
@@ -155,7 +206,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
             accessibilityLabel="Enter a custom score"
             icon="score"
             label="Custom score"
-            onPress={() => setCustomScoreOpen(true)}
+            onPress={() => void handleOpenCustomScore()}
             style={styles.quickAction}
             variant="text"
           />
@@ -194,7 +245,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
             key={match.id}
             matchId={match.id}
             onPassPlayer={() => undefined}
-            onReportScore={(matchId) => setScoreMatchId(matchId)}
+            onReportScore={(matchId) => void handleOpenResult(matchId)}
             playerAction="none"
             primaryActionLabel="Report score"
             primaryActionTone="pickleLeaf"
@@ -206,19 +257,22 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
       {scoreMatchTeams ? (
         <ScoreReportModal
           onClose={() => setScoreMatchId(null)}
-          onSubmit={handleSubmitScore}
+          onSubmit={handleSubmitResult}
+          resultMode={scoreModeEnabled ? "score" : "win_loss"}
           teams={scoreMatchTeams}
           visible
         />
       ) : null}
       {historyEditMatch && historyEditTeams ? (
         <ScoreReportModal
-          initialTeamOneScore={historyEditMatch.team_one_score}
-          initialTeamTwoScore={historyEditMatch.team_two_score}
+          initialTeamOneScore={scoreModeEnabled && historyEditMatch.result_mode === "score" ? historyEditMatch.team_one_score : null}
+          initialTeamTwoScore={scoreModeEnabled && historyEditMatch.result_mode === "score" ? historyEditMatch.team_two_score : null}
+          initialWinningTeam={!scoreModeEnabled ? historyEditMatch.winning_team : null}
           onClose={handleCloseHistoryEdit}
           onSubmit={handleSubmitHistoryEdit}
+          resultMode={scoreModeEnabled ? "score" : "win_loss"}
           teams={historyEditTeams}
-          title="Edit score"
+          title={scoreModeEnabled ? "Edit score" : "Edit result"}
           visible
         />
       ) : null}
@@ -227,12 +281,14 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
         onClose={() => setCustomScoreOpen(false)}
         onSubmit={recordCustomMatch}
         players={players}
+        resultMode={scoreModeEnabled ? "score" : "win_loss"}
         visible={customScoreOpen}
       />
       <MatchHistoryModal
         matches={completedMatches}
         onClose={() => setMatchHistoryOpen(false)}
-        onEditMatch={handleEditHistoryMatch}
+        onEditMatch={(match) => void handleEditHistoryMatch(match)}
+        scoreModeEnabled={scoreModeEnabled}
         visible={matchHistoryOpen}
       />
     </ScrollView>

@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View
@@ -36,6 +37,7 @@ import {
   joinLeagueQueue,
   searchLeaguePlayerNames,
   searchOrganizations,
+  setOrganizationScoreMode,
   type LeagueCodeResult,
   type LeaguePlayerNameMatch,
   type OrganizationOpenSessionSummary,
@@ -133,6 +135,7 @@ export function HomeScreen({
   const [expandedRosterLeagueId, setExpandedRosterLeagueId] = useState<string | null>(null);
   const [organizationPlayers, setOrganizationPlayers] = useState<Record<string, OrganizationPlayerSummary[]>>({});
   const [playerDrafts, setPlayerDrafts] = useState<Record<string, PlayerDraft>>({});
+  const [scoreModeUpdatingLeagueId, setScoreModeUpdatingLeagueId] = useState<string | null>(null);
 
   const visibleOrganizations = useMemo(() => {
     const normalizedQuery = leagueQuery.trim().toLowerCase();
@@ -921,6 +924,40 @@ export function HomeScreen({
     }
   }
 
+  function confirmScoreModeChange(organization: OrganizationSummary, enabled: boolean) {
+    Alert.alert(
+      enabled ? "Turn score mode on?" : "Turn score mode off?",
+      enabled
+        ? "Players will enter final scores for new and edited results."
+        : "Players will select the winning team instead of entering a final score. Existing scores will remain saved.",
+      [
+        { style: "cancel", text: "Cancel" },
+        {
+          onPress: () => void updateScoreMode(organization, enabled),
+          text: enabled ? "Turn on" : "Turn off"
+        }
+      ]
+    );
+  }
+
+  async function updateScoreMode(organization: OrganizationSummary, enabled: boolean) {
+    setScoreModeUpdatingLeagueId(organization.id);
+    setErrorMessage(null);
+
+    try {
+      const updatedOrganization = await setOrganizationScoreMode(organization.id, enabled);
+      setOrganizations((previousOrganizations) =>
+        previousOrganizations.map((item) =>
+          item.id === organization.id ? updatedOrganization : item
+        )
+      );
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not update score mode.");
+    } finally {
+      setScoreModeUpdatingLeagueId(null);
+    }
+  }
+
   function updatePlayerDraft(organizationId: string, value: string) {
     setPlayerDrafts((previousDrafts) => ({
       ...previousDrafts,
@@ -1097,7 +1134,7 @@ export function HomeScreen({
                   {organization.role === "admin" ? (
                     <ActionButton
                       disabled={loading}
-                      label={isExpanded ? "Close" : "Players"}
+                      label={isExpanded ? "Close" : "Manage"}
                       onPress={() => void toggleRoster(organization)}
                       variant="text"
                     />
@@ -1112,6 +1149,29 @@ export function HomeScreen({
               </View>
               {isExpanded ? (
                 <View style={styles.rosterPanel}>
+                  <View style={styles.scoreModeRow}>
+                    <View style={styles.leagueText}>
+                      <Text style={styles.memberName}>Score mode</Text>
+                      <Text style={styles.leagueMeta}>
+                        {organization.score_mode_enabled !== false
+                          ? "Players enter final scores."
+                          : "Players select the winning team."}
+                      </Text>
+                    </View>
+                    <Switch
+                      accessibilityLabel="Score mode"
+                      accessibilityHint="Changes how league match results are recorded"
+                      disabled={loading || scoreModeUpdatingLeagueId === organization.id}
+                      ios_backgroundColor={theme.color.action.disabled}
+                      onValueChange={(enabled) => confirmScoreModeChange(organization, enabled)}
+                      thumbColor={theme.color.surface.card}
+                      trackColor={{
+                        false: theme.color.action.disabled,
+                        true: theme.color.action.primary
+                      }}
+                      value={organization.score_mode_enabled !== false}
+                    />
+                  </View>
                   <View style={styles.addPlayerRow}>
                     <TextInput
                       accessibilityLabel="Player name"
@@ -1738,6 +1798,13 @@ const styles = StyleSheet.create({
     borderTopWidth: theme.border.quiet,
     gap: theme.layout.stackCompact,
     paddingTop: theme.layout.stackDefault
+  },
+  scoreModeRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.layout.inlineDefault,
+    minHeight: theme.size.targetMinimum,
+    paddingBottom: theme.space[8]
   },
   rowActions: {
     alignItems: "center",

@@ -29,11 +29,13 @@ class SupabaseGateway:
     ) -> RecommendationSnapshot:
         payload = {
             "p_match_id": str(match_id),
+            "p_result_mode": request.result_mode,
             "p_team_one_score": request.team_one_score,
             "p_team_two_score": request.team_two_score,
+            "p_winning_team": request.winning_team,
         }
         data = await self._rpc_as_user(
-            "complete_match_for_recommendations",
+            "complete_match_result_for_recommendations",
             payload,
             access_token,
         )
@@ -51,11 +53,13 @@ class SupabaseGateway:
             "p_team_one_player_two_id": str(request.team_one_player_ids[1]),
             "p_team_two_player_one_id": str(request.team_two_player_ids[0]),
             "p_team_two_player_two_id": str(request.team_two_player_ids[1]),
+            "p_result_mode": request.result_mode,
             "p_team_one_score": request.team_one_score,
             "p_team_two_score": request.team_two_score,
+            "p_winning_team": request.winning_team,
         }
         data = await self._rpc_as_user(
-            "complete_custom_match_for_recommendations",
+            "complete_custom_match_result_for_recommendations",
             payload,
             access_token,
         )

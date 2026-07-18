@@ -3,6 +3,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +13,7 @@ import {
 import type { Player } from "../data/sampleClub";
 import { theme } from "../design/theme";
 import { playerDisplayNames } from "../lib/playerDisplayNames";
-import type { CustomMatchRequest } from "../types/matchFlow";
+import type { CustomMatchInput, ResultMode } from "../types/matchFlow";
 import { ActionButton } from "./ActionButton";
 import { PlayerRow } from "./PlayerRow";
 import { SearchField } from "./SearchField";
@@ -20,8 +21,9 @@ import { SearchField } from "./SearchField";
 type CustomScoreModalProps = {
   currentPlayerId?: string | null;
   onClose: () => void;
-  onSubmit: (request: CustomMatchRequest) => Promise<boolean>;
+  onSubmit: (request: CustomMatchInput) => Promise<boolean>;
   players: Player[];
+  resultMode: ResultMode;
   visible: boolean;
 };
 
@@ -37,6 +39,7 @@ export function CustomScoreModal({
   onClose,
   onSubmit,
   players,
+  resultMode,
   visible
 }: CustomScoreModalProps) {
   const [focusedTeam, setFocusedTeam] = useState<1 | 2 | null>(null);
@@ -46,6 +49,7 @@ export function CustomScoreModal({
   const [submitting, setSubmitting] = useState(false);
   const [teamOneScore, setTeamOneScore] = useState("");
   const [teamTwoScore, setTeamTwoScore] = useState("");
+  const [selectedWinner, setSelectedWinner] = useState<1 | 2 | null>(null);
   const eligiblePlayers = useMemo(
     () => players.filter((player) => player.inSession && !player.isPlaying),
     [players]
@@ -67,21 +71,37 @@ export function CustomScoreModal({
     setSubmitting(false);
     setTeamOneScore("");
     setTeamTwoScore("");
+    setSelectedWinner(null);
   }, [visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    setFocusedTeam(null);
+    setSubmissionError(null);
+    setTeamOneScore("");
+    setTeamTwoScore("");
+    setSelectedWinner(null);
+  }, [resultMode, visible]);
 
   const parsedTeamOneScore = Number.parseInt(teamOneScore, 10);
   const parsedTeamTwoScore = Number.parseInt(teamTwoScore, 10);
   const chosenPlayerIds = selectedPlayerIds.filter((playerId): playerId is string => Boolean(playerId));
   const teamOnePlayersSelected = Boolean(selectedPlayerIds[0] && selectedPlayerIds[1]);
   const teamTwoPlayersSelected = Boolean(selectedPlayerIds[2] && selectedPlayerIds[3]);
+  const scoresAreComplete =
+    teamOneScore.length > 0 &&
+    teamTwoScore.length > 0 &&
+    Number.isInteger(parsedTeamOneScore) &&
+    Number.isInteger(parsedTeamTwoScore);
+  const scoresAreTied = scoresAreComplete && parsedTeamOneScore === parsedTeamTwoScore;
   const canSubmit =
     chosenPlayerIds.length === 4 &&
     new Set(chosenPlayerIds).size === 4 &&
     chosenPlayerIds.every((playerId) => eligiblePlayers.some((player) => player.id === playerId)) &&
-    teamOneScore.length > 0 &&
-    teamTwoScore.length > 0 &&
-    Number.isInteger(parsedTeamOneScore) &&
-    Number.isInteger(parsedTeamTwoScore) &&
+    (resultMode === "score" ? scoresAreComplete && !scoresAreTied : selectedWinner !== null) &&
     !submitting;
 
   function updatePlayerQuery(slot: PlayerSlot, query: string) {
@@ -197,12 +217,24 @@ export function CustomScoreModal({
 
     setSubmitting(true);
     setSubmissionError(null);
-    const saved = await onSubmit({
-      team_one_player_ids: [selectedPlayerIds[0]!, selectedPlayerIds[1]!],
-      team_one_score: parsedTeamOneScore,
-      team_two_player_ids: [selectedPlayerIds[2]!, selectedPlayerIds[3]!],
-      team_two_score: parsedTeamTwoScore
-    });
+    const playersInput = {
+      teamOnePlayerIds: [selectedPlayerIds[0]!, selectedPlayerIds[1]!] as [string, string],
+      teamTwoPlayerIds: [selectedPlayerIds[2]!, selectedPlayerIds[3]!] as [string, string]
+    };
+    const saved = await onSubmit(
+      resultMode === "score"
+        ? {
+            ...playersInput,
+            resultMode: "score",
+            teamOneScore: parsedTeamOneScore,
+            teamTwoScore: parsedTeamTwoScore
+          }
+        : {
+            ...playersInput,
+            resultMode: "win_loss",
+            winningTeam: selectedWinner!
+          }
+    );
     setSubmitting(false);
 
     if (saved) {
@@ -210,7 +242,7 @@ export function CustomScoreModal({
       return;
     }
 
-    setSubmissionError("Could not save the custom score. Check the players and try again.");
+    setSubmissionError("Could not save the custom result. The league mode may have changed; review the form and try again.");
   }
 
   return (
@@ -242,14 +274,22 @@ export function CustomScoreModal({
                 {renderPlayerPicker(0, "Player 1")}
                 {renderPlayerPicker(1, "Player 2")}
               </View>
-              <ScoreInput
-                focused={focusedTeam === 1}
-                label="Team 1 score"
-                onBlur={() => setFocusedTeam(null)}
-                onChangeScore={setTeamOneScore}
-                onFocus={() => setFocusedTeam(1)}
-                score={teamOneScore}
-              />
+              {resultMode === "score" ? (
+                <ScoreInput
+                  focused={focusedTeam === 1}
+                  label="Team 1 score"
+                  onBlur={() => setFocusedTeam(null)}
+                  onChangeScore={setTeamOneScore}
+                  onFocus={() => setFocusedTeam(1)}
+                  score={teamOneScore}
+                />
+              ) : (
+                <WinnerChoice
+                  onSelect={() => setSelectedWinner(1)}
+                  selected={selectedWinner === 1}
+                  teamNumber={1}
+                />
+              )}
             </View>
 
             <View style={styles.versusRow}>
@@ -265,15 +305,29 @@ export function CustomScoreModal({
                 {renderPlayerPicker(2, "Player 3")}
                 {renderPlayerPicker(3, "Player 4")}
               </View>
-              <ScoreInput
-                focused={focusedTeam === 2}
-                label="Team 2 score"
-                onBlur={() => setFocusedTeam(null)}
-                onChangeScore={setTeamTwoScore}
-                onFocus={() => setFocusedTeam(2)}
-                score={teamTwoScore}
-              />
+              {resultMode === "score" ? (
+                <ScoreInput
+                  focused={focusedTeam === 2}
+                  label="Team 2 score"
+                  onBlur={() => setFocusedTeam(null)}
+                  onChangeScore={setTeamTwoScore}
+                  onFocus={() => setFocusedTeam(2)}
+                  score={teamTwoScore}
+                />
+              ) : (
+                <WinnerChoice
+                  onSelect={() => setSelectedWinner(2)}
+                  selected={selectedWinner === 2}
+                  teamNumber={2}
+                />
+              )}
             </View>
+
+            {scoresAreTied && resultMode === "score" ? (
+              <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+                Scores cannot be tied.
+              </Text>
+            ) : null}
 
             {submissionError ? (
               <Text accessibilityLiveRegion="polite" style={styles.errorText}>
@@ -291,7 +345,7 @@ export function CustomScoreModal({
               />
               <ActionButton
                 disabled={!canSubmit}
-                label={submitting ? "Saving..." : "Save score"}
+                label={submitting ? "Saving..." : resultMode === "score" ? "Save score" : "Save result"}
                 onPress={() => void handleSubmit()}
                 style={styles.actionButton}
               />
@@ -300,6 +354,34 @@ export function CustomScoreModal({
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function WinnerChoice({
+  onSelect,
+  selected,
+  teamNumber
+}: {
+  onSelect: () => void;
+  selected: boolean;
+  teamNumber: 1 | 2;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`Select Team ${teamNumber} as the winning team`}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      onPress={onSelect}
+      style={({ pressed }) => [
+        styles.winnerChoice,
+        selected ? styles.winnerChoiceSelected : null,
+        pressed ? styles.winnerChoicePressed : null
+      ]}
+    >
+      <Text style={[styles.winnerChoiceText, selected ? styles.winnerChoiceTextSelected : null]}>
+        {selected ? "Selected winner" : `Team ${teamNumber} won`}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -454,5 +536,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: theme.space[8]
+  },
+  winnerChoice: {
+    alignItems: "center",
+    borderColor: theme.color.border.control,
+    borderRadius: theme.radius.control,
+    borderWidth: theme.border.interactive,
+    justifyContent: "center",
+    minHeight: theme.space[64],
+    paddingHorizontal: theme.space[8],
+    width: 104
+  },
+  winnerChoicePressed: {
+    backgroundColor: theme.color.surface.info
+  },
+  winnerChoiceSelected: {
+    backgroundColor: theme.color.surface.info,
+    borderColor: theme.color.border.active,
+    borderWidth: theme.border.focus
+  },
+  winnerChoiceText: {
+    ...theme.type.bodySecondary,
+    color: theme.color.action.primary,
+    textAlign: "center"
+  },
+  winnerChoiceTextSelected: {
+    color: theme.color.text.selected,
+    fontWeight: "600"
   }
 });

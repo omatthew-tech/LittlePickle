@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -8,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class OrganizationSnapshot(BaseModel):
     id: UUID | str
     number_of_courts: int = Field(gt=0)
+    score_mode_enabled: bool = True
 
 
 class SessionSnapshot(BaseModel):
@@ -65,8 +67,27 @@ class RecommendationResponse(BaseModel):
 
 
 class CompleteMatchRequest(BaseModel):
-    team_one_score: int = Field(ge=0)
-    team_two_score: int = Field(ge=0)
+    result_mode: Literal["score", "win_loss"] = "score"
+    team_one_score: int | None = Field(default=None, ge=0)
+    team_two_score: int | None = Field(default=None, ge=0)
+    winning_team: Literal[1, 2] | None = None
+
+    @model_validator(mode="after")
+    def require_valid_result(self) -> "CompleteMatchRequest":
+        if self.result_mode == "score":
+            if self.team_one_score is None or self.team_two_score is None:
+                raise ValueError("both scores are required in score mode")
+            if self.team_one_score == self.team_two_score:
+                raise ValueError("scores cannot be tied")
+            if self.winning_team is not None:
+                raise ValueError("winning_team is only accepted in win/loss mode")
+            return self
+
+        if self.winning_team is None:
+            raise ValueError("winning_team is required in win/loss mode")
+        if self.team_one_score is not None or self.team_two_score is not None:
+            raise ValueError("scores are not accepted in win/loss mode")
+        return self
 
 
 class CustomMatchRequest(CompleteMatchRequest):

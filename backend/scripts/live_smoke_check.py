@@ -35,6 +35,7 @@ def main() -> None:
     access_token = identity.access_token
     organization_id: str | None = None
     session_id: str | None = None
+    non_admin_user_id: str | None = None
 
     try:
         organization_id = _rpc(
@@ -47,6 +48,50 @@ def main() -> None:
                 "p_number_of_courts": 2,
             },
         )
+
+        organizations = _rpc(settings, access_token, "my_organizations", {})
+        smoke_organization = next(
+            organization
+            for organization in organizations
+            if organization["id"] == organization_id
+        )
+        assert smoke_organization["score_mode_enabled"] is True, (
+            "new leagues must default to score mode"
+        )
+
+        non_admin_email = f"littlepickle-smoke-player-{timestamp}@example.com"
+        non_admin_password = f"LittlePickle-smoke-player-{timestamp}!"
+        non_admin_user_id = _create_user(
+            settings,
+            non_admin_email,
+            non_admin_password,
+        )
+        non_admin_token = _sign_in(
+            settings,
+            non_admin_email,
+            non_admin_password,
+        )
+        _rpc(
+            settings,
+            non_admin_token,
+            "join_organization",
+            {"p_organization_id": organization_id},
+        )
+
+        try:
+            _rpc(
+                settings,
+                non_admin_token,
+                "set_organization_score_mode",
+                {
+                    "p_organization_id": organization_id,
+                    "p_score_mode_enabled": False,
+                },
+            )
+        except AssertionError as error:
+            assert "403" in str(error) or "42501" in str(error)
+        else:
+            raise AssertionError("non-admin league members must not change score mode")
 
         for index, rating in enumerate((3.10, 3.25, 3.40, 3.55, 3.70, 3.85, 4.00), start=1):
             _rpc(
@@ -124,13 +169,121 @@ def main() -> None:
             accepted_player_ids,
         )
 
+        score_mode_off = _rpc(
+            settings,
+            access_token,
+            "set_organization_score_mode",
+            {
+                "p_organization_id": organization_id,
+                "p_score_mode_enabled": False,
+            },
+        )
+        assert score_mode_off["score_mode_enabled"] is False
+
         completed = _api_post(
             client,
             f"/matches/{match_id}/complete",
             authorization,
-            {"team_one_score": 11, "team_two_score": 7},
+            {"result_mode": "win_loss", "winning_team": 1},
         )
         _assert_recommendations(completed, expected_count=3)
+
+        history = _rpc(
+            settings,
+            access_token,
+            "completed_matches",
+            {"p_session_id": session_id},
+        )["matches"]
+        assert history[0]["result_mode"] == "win_loss"
+        assert history[0]["winning_team"] == 1
+        assert history[0]["team_one_score"] is None
+        assert history[0]["team_two_score"] is None
+
+        score_mode_on = _rpc(
+            settings,
+            access_token,
+            "set_organization_score_mode",
+            {
+                "p_organization_id": organization_id,
+                "p_score_mode_enabled": True,
+            },
+        )
+        assert score_mode_on["score_mode_enabled"] is True
+
+        custom_completed = _api_post(
+            client,
+            f"/sessions/{session_id}/matches/custom",
+            authorization,
+            {
+                "result_mode": "score",
+                "team_one_player_ids": [players[0]["id"], players[1]["id"]],
+                "team_one_score": 11,
+                "team_two_player_ids": [players[2]["id"], players[3]["id"]],
+                "team_two_score": 8,
+            },
+        )
+        _assert_recommendations(custom_completed, expected_count=3)
+
+        history = _rpc(
+            settings,
+            access_token,
+            "completed_matches",
+            {"p_session_id": session_id},
+        )["matches"]
+        scored_result = next(match for match in history if match["result_mode"] == "score")
+        assert scored_result["team_one_score"] == 11
+        assert scored_result["team_two_score"] == 8
+        assert scored_result["winning_team"] == 1
+
+        stale_recommendation = custom_completed["recommendations"][0]
+        stale_accepted = _api_post(
+            client,
+            f"/recommendations/{stale_recommendation['id']}/accept",
+            authorization,
+            {},
+        )
+        stale_match_id = stale_accepted["match_id"]
+
+        _rpc(
+            settings,
+            access_token,
+            "set_organization_score_mode",
+            {
+                "p_organization_id": organization_id,
+                "p_score_mode_enabled": False,
+            },
+        )
+        stale_response = client.post(
+            f"/matches/{stale_match_id}/complete",
+            headers=authorization,
+            json={
+                "result_mode": "score",
+                "team_one_score": 11,
+                "team_two_score": 9,
+            },
+        )
+        assert stale_response.status_code == 400
+        assert "score mode changed" in stale_response.text.lower()
+
+        completed = _api_post(
+            client,
+            f"/matches/{stale_match_id}/complete",
+            authorization,
+            {"result_mode": "win_loss", "winning_team": 2},
+        )
+        _assert_recommendations(completed, expected_count=3)
+
+        history_while_off = _rpc(
+            settings,
+            access_token,
+            "completed_matches",
+            {"p_session_id": session_id},
+        )["matches"]
+        preserved_score = next(
+            match for match in history_while_off if match["id"] == scored_result["id"]
+        )
+        assert preserved_score["team_one_score"] == 11
+        assert preserved_score["team_two_score"] == 8
 
         pass_recommendation = completed["recommendations"][0]
         pass_player = pass_recommendation["players"][0]
@@ -221,6 +374,11 @@ def main() -> None:
                 _delete_user(settings, identity.temporary_user_id)
             except Exception as error:
                 print(f"warning: could not delete temporary auth user: {error}")
+        if non_admin_user_id:
+            try:
+                _delete_user(settings, non_admin_user_id)
+            except Exception as error:
+                print(f"warning: could not delete temporary non-admin user: {error}")
 
 
 def _test_identity(settings: Settings, timestamp: str) -> TestIdentity:

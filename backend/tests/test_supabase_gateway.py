@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 from uuid import UUID
 
+import pytest
+from pydantic import ValidationError
+
 from app.config import Settings
 from app.models import CustomMatchRequest, CompleteMatchRequest, PassPlayerRequest, RecommendationResponse
 from app.supabase_gateway import SupabaseGateway
@@ -137,11 +140,13 @@ def test_user_commands_call_expected_rpc_payloads():
     assert custom_snapshot.session.id == "sample-session"
     assert gateway.user_calls == [
         (
-            "complete_match_for_recommendations",
+            "complete_match_result_for_recommendations",
             {
                 "p_match_id": "00000000-0000-0000-0000-000000000111",
+                "p_result_mode": "score",
                 "p_team_one_score": 11,
                 "p_team_two_score": 7,
+                "p_winning_team": None,
             },
             "user-token",
         ),
@@ -155,15 +160,17 @@ def test_user_commands_call_expected_rpc_payloads():
             "user-token",
         ),
         (
-            "complete_custom_match_for_recommendations",
+            "complete_custom_match_result_for_recommendations",
             {
                 "p_session_id": "00000000-0000-0000-0000-000000000333",
                 "p_team_one_player_one_id": "00000000-0000-0000-0000-000000000011",
                 "p_team_one_player_two_id": "00000000-0000-0000-0000-000000000012",
                 "p_team_two_player_one_id": "00000000-0000-0000-0000-000000000013",
                 "p_team_two_player_two_id": "00000000-0000-0000-0000-000000000014",
+                "p_result_mode": "score",
                 "p_team_one_score": 11,
                 "p_team_two_score": 9,
+                "p_winning_team": None,
             },
             "user-token",
         ),
@@ -176,6 +183,52 @@ def test_user_commands_call_expected_rpc_payloads():
             "user-token",
         ),
     ]
+
+
+def test_win_loss_request_uses_explicit_winner_payload():
+    gateway = RecordingGateway()
+
+    asyncio.run(
+        gateway.complete_match(
+            UUID("00000000-0000-0000-0000-000000000111"),
+            CompleteMatchRequest(result_mode="win_loss", winning_team=2),
+            "user-token",
+        )
+    )
+
+    assert gateway.user_calls == [
+        (
+            "complete_match_result_for_recommendations",
+            {
+                "p_match_id": "00000000-0000-0000-0000-000000000111",
+                "p_result_mode": "win_loss",
+                "p_team_one_score": None,
+                "p_team_two_score": None,
+                "p_winning_team": 2,
+            },
+            "user-token",
+        )
+    ]
+
+
+def test_result_request_rejects_ties_and_mixed_shapes():
+    with pytest.raises(ValidationError, match="scores cannot be tied"):
+        CompleteMatchRequest(team_one_score=11, team_two_score=11)
+
+    with pytest.raises(ValidationError, match="scores are not accepted"):
+        CompleteMatchRequest(
+            result_mode="win_loss",
+            team_one_score=1,
+            team_two_score=0,
+            winning_team=1,
+        )
+
+
+def test_snapshot_defaults_score_mode_on_for_legacy_responses():
+    snapshot = _snapshot(number_of_courts=2)
+
+    assert "score_mode_enabled" not in snapshot["organization"]
+    assert gateway_snapshot(snapshot).organization.score_mode_enabled is True
 
 
 class RecordingGateway(SupabaseGateway):
@@ -208,7 +261,7 @@ class RecordingGateway(SupabaseGateway):
         if function_name == "accept_recommendation":
             return "match-1"
 
-        if function_name == "complete_custom_match_for_recommendations":
+        if function_name == "complete_custom_match_result_for_recommendations":
             return {
                 "match_id": "00000000-0000-0000-0000-000000000999",
                 "snapshot": _snapshot(number_of_courts=2),
@@ -297,3 +350,9 @@ def _snapshot(number_of_courts: int):
             {"id": "p04", "name": "Devon", "skill": 3.45, "rounds_waiting": 0, "queue_position": 3, "games_played": 0},
         ],
     }
+
+
+def gateway_snapshot(data: dict):
+    from app.models import RecommendationSnapshot
+
+    return RecommendationSnapshot.model_validate(data)

@@ -147,8 +147,8 @@ Authorization: Bearer <supabase-access-token>
 Main flow:
 
 1. `POST /recommendations/{recommendation_id}/accept` creates an active match on the requested court or lowest open court.
-2. `POST /matches/{match_id}/complete` saves the score, advances queue state, regenerates recommendations, stores the new batch in Supabase, and returns it.
-3. `POST /sessions/{session_id}/matches/custom` creates and completes a match for four selected current-session players without requiring a previously started match. It then advances the queue and regenerates recommendations through the normal completion flow.
+2. `POST /matches/{match_id}/complete` saves a mode-matched result, advances queue state, regenerates recommendations, stores the new batch in Supabase, and returns it. Send either `{"result_mode":"score","team_one_score":11,"team_two_score":7}` or `{"result_mode":"win_loss","winning_team":1}`.
+3. `POST /sessions/{session_id}/matches/custom` creates and completes a match for four selected current-session players without requiring a previously started match. It accepts the same discriminated result fields, then advances the queue and regenerates recommendations through the normal completion flow.
 4. `POST /recommendations/{recommendation_id}/pass-player` moves the passed player to the end of the queue, regenerates recommendations, stores the new batch, and returns it.
 
 Supabase RPCs used by the Expo app:
@@ -163,6 +163,7 @@ Supabase RPCs used by the Expo app:
 - `organization_members_for_admin`
 - `organization_players_for_admin`
 - `update_organization_settings`
+- `set_organization_score_mode`
 - `set_organization_member_role`
 - `create_player`
 - `update_organization_player`
@@ -176,3 +177,4 @@ Supabase RPCs used by the Expo app:
 - `active_recommendations`
 - `active_matches`
 - `completed_matches`
+- `update_completed_match_result`

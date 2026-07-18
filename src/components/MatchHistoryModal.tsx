@@ -8,10 +8,17 @@ type MatchHistoryModalProps = {
   matches: CompletedMatch[];
   onClose: () => void;
   onEditMatch: (match: CompletedMatch) => void;
+  scoreModeEnabled: boolean;
   visible: boolean;
 };
 
-export function MatchHistoryModal({ matches, onClose, onEditMatch, visible }: MatchHistoryModalProps) {
+export function MatchHistoryModal({
+  matches,
+  onClose,
+  onEditMatch,
+  scoreModeEnabled,
+  visible
+}: MatchHistoryModalProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -38,7 +45,12 @@ export function MatchHistoryModal({ matches, onClose, onEditMatch, visible }: Ma
           style={styles.scrollView}
         >
           {matches.map((match) => (
-            <HistoryMatch key={match.id} match={match} onEdit={() => onEditMatch(match)} />
+            <HistoryMatch
+              key={match.id}
+              match={match}
+              onEdit={() => onEditMatch(match)}
+              scoreModeEnabled={scoreModeEnabled}
+            />
           ))}
           {matches.length === 0 ? (
             <Text accessibilityLiveRegion="polite" style={styles.emptyText}>
@@ -51,10 +63,19 @@ export function MatchHistoryModal({ matches, onClose, onEditMatch, visible }: Ma
   );
 }
 
-function HistoryMatch({ match, onEdit }: { match: CompletedMatch; onEdit: () => void }) {
+function HistoryMatch({
+  match,
+  onEdit,
+  scoreModeEnabled
+}: {
+  match: CompletedMatch;
+  onEdit: () => void;
+  scoreModeEnabled: boolean;
+}) {
   const teamOneNames = teamNames(match.players, 1);
   const teamTwoNames = teamNames(match.players, 2);
-  const winningTeam = winner(match.team_one_score, match.team_two_score);
+  const winningTeam = match.winning_team ?? winner(match.team_one_score, match.team_two_score);
+  const showOutcome = !scoreModeEnabled || match.result_mode === "win_loss";
   const matchDate = formatMatchDate(match.completed_at ?? match.started_at);
 
   return (
@@ -66,26 +87,32 @@ function HistoryMatch({ match, onEdit }: { match: CompletedMatch; onEdit: () => 
       <View style={styles.matchMetadata}>
         <Text style={styles.matchDate}>{matchDate}</Text>
         <ActionButton
-          accessibilityLabel={`Edit score for match completed ${matchDate}`}
+          accessibilityLabel={`Edit result for match completed ${matchDate}`}
           label="Edit"
           onPress={onEdit}
           variant="text"
         />
       </View>
       <View style={styles.teams}>
-        <HistoryTeam names={teamOneNames} score={match.team_one_score} winner={winningTeam === 1} />
-        <HistoryTeam names={teamTwoNames} score={match.team_two_score} winner={winningTeam === 2} />
+        <HistoryTeam
+          names={teamOneNames}
+          value={showOutcome ? outcomeText(winningTeam, 1) : scoreText(match.team_one_score)}
+          winner={winningTeam === 1}
+        />
+        <HistoryTeam
+          names={teamTwoNames}
+          value={showOutcome ? outcomeText(winningTeam, 2) : scoreText(match.team_two_score)}
+          winner={winningTeam === 2}
+        />
       </View>
     </View>
   );
 }
 
-function HistoryTeam({ names, score, winner: isWinner }: { names: string; score: number | null; winner: boolean }) {
-  const visibleScore = scoreText(score);
-
+function HistoryTeam({ names, value, winner: isWinner }: { names: string; value: string; winner: boolean }) {
   return (
     <View
-      accessibilityLabel={`${names}, ${visibleScore}${isWinner ? ", winner" : ""}`}
+      accessibilityLabel={`${names}, ${value}${isWinner ? ", winner" : ""}`}
       accessible
       style={styles.teamRow}
     >
@@ -93,7 +120,7 @@ function HistoryTeam({ names, score, winner: isWinner }: { names: string; score:
         <Text style={styles.teamNames}>{names}</Text>
       </View>
       <View style={styles.scoreGroup}>
-        <Text style={[styles.score, isWinner ? styles.winningScore : null]}>{visibleScore}</Text>
+        <Text style={[styles.score, isWinner ? styles.winningScore : null]}>{value}</Text>
       </View>
     </View>
   );
@@ -117,6 +144,14 @@ function winner(teamOneScore: number | null, teamTwoScore: number | null): 1 | 2
 
 function scoreText(score: number | null) {
   return score === null ? "--" : String(score);
+}
+
+function outcomeText(winningTeam: 1 | 2 | null, teamNumber: 1 | 2) {
+  if (winningTeam === null) {
+    return "Tie";
+  }
+
+  return winningTeam === teamNumber ? "Win" : "Loss";
 }
 
 function formatMatchDate(value: string) {

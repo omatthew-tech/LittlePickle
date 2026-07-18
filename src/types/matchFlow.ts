@@ -1,6 +1,25 @@
 export type OrganizationSnapshot = {
   id: string;
   number_of_courts: number;
+  score_mode_enabled: boolean;
+};
+
+export type ResultMode = "score" | "win_loss";
+
+export type MatchResultInput =
+  | {
+      resultMode: "score";
+      teamOneScore: number;
+      teamTwoScore: number;
+    }
+  | {
+      resultMode: "win_loss";
+      winningTeam: 1 | 2;
+    };
+
+export type CustomMatchInput = MatchResultInput & {
+  teamOnePlayerIds: [string, string];
+  teamTwoPlayerIds: [string, string];
 };
 
 export type SessionSnapshot = {
@@ -75,8 +94,10 @@ export type CompletedMatch = {
   court_number: number | null;
   started_at: string;
   completed_at: string | null;
+  result_mode: ResultMode;
   team_one_score: number | null;
   team_two_score: number | null;
+  winning_team: 1 | 2 | null;
   players: ActiveMatchPlayer[];
 };
 
@@ -105,10 +126,19 @@ export type RecommendationResponse = {
   batch_id: string | null;
 };
 
-export type CompleteMatchRequest = {
-  team_one_score: number;
-  team_two_score: number;
-};
+export type CompleteMatchRequest =
+  | {
+      result_mode: "score";
+      team_one_score: number;
+      team_two_score: number;
+      winning_team?: never;
+    }
+  | {
+      result_mode: "win_loss";
+      team_one_score?: never;
+      team_two_score?: never;
+      winning_team: 1 | 2;
+    };
 
 export type CustomMatchRequest = CompleteMatchRequest & {
   team_one_player_ids: [string, string];

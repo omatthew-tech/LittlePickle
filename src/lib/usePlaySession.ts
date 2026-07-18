@@ -10,7 +10,7 @@ import {
   getSessionRecommendationSnapshot,
   removePlayerFromSession,
   searchLeaguePlayerNames,
-  updateCompletedMatchScore as persistCompletedMatchScore,
+  updateCompletedMatchResult as persistCompletedMatchResult,
   type LeaguePlayerNameMatch
 } from "./littlePickleData";
 import {
@@ -27,8 +27,11 @@ import { isSupabaseConfigured } from "./supabase";
 import type {
   ActiveMatch,
   ActiveMatchPlayer,
+  CompleteMatchRequest,
   CompletedMatch,
+  CustomMatchInput,
   CustomMatchRequest,
+  MatchResultInput,
   MatchRecommendation,
   PlayerSnapshot,
   RecommendationResponse,
@@ -44,15 +47,17 @@ type PlaySessionState = {
   addNewPlayerToSession: (displayName: string) => Promise<boolean>;
   canStartRecommendedMatch: boolean;
   completedMatches: CompletedMatch[];
-  completeActiveMatch: (matchId: string, teamOneScore: number, teamTwoScore: number) => Promise<void>;
+  completeActiveMatch: (matchId: string, result: MatchResultInput) => Promise<boolean>;
   courtCount: number | null;
-  editCompletedMatchScore: (matchId: string, teamOneScore: number, teamTwoScore: number) => Promise<boolean>;
+  editCompletedMatchResult: (matchId: string, result: MatchResultInput) => Promise<boolean>;
   live: boolean;
   loading: boolean;
   players: Player[];
   recommendations: MatchRecommendation[];
-  recordCustomMatch: (request: CustomMatchRequest) => Promise<boolean>;
+  recordCustomMatch: (request: CustomMatchInput) => Promise<boolean>;
   refresh: () => Promise<void>;
+  refreshScoreMode: () => Promise<boolean | null>;
+  scoreModeEnabled: boolean;
   sessionEnded: boolean;
   setPlayerInSession: (playerId: string, inSession: boolean) => Promise<boolean>;
   startRecommendedMatch: (recommendationId: string) => Promise<void>;
@@ -81,6 +86,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
   const [activeMatches, setActiveMatches] = useState<ActiveMatch[]>([]);
   const [courtCount, setCourtCount] = useState<number | null>(null);
   const [completedMatches, setCompletedMatches] = useState<CompletedMatch[]>([]);
+  const [scoreModeEnabled, setScoreModeEnabled] = useState(true);
   const [recommendations, setRecommendations] = useState<MatchRecommendation[]>(
     liveEnabled || needsLiveSession ? [] : sampleRecommendations
   );
@@ -94,6 +100,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setActiveMatches([]);
       setCourtCount(null);
       setCompletedMatches([]);
+      setScoreModeEnabled(true);
       setPlayers([]);
       setSessionEnded(false);
 
@@ -123,6 +130,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setActiveMatches([]);
       setCourtCount(null);
       setCompletedMatches([]);
+      setScoreModeEnabled(true);
       setPlayers(samplePlayers);
       setSessionEnded(false);
       setLoading(false);
@@ -141,6 +149,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setActiveMatches(sessionData.matches.matches);
       setCourtCount(sessionData.courtCount);
       setCompletedMatches(sessionData.completed.matches);
+      setScoreModeEnabled(sessionData.snapshot.organization.score_mode_enabled);
       setPlayers(sessionData.playerOptions.length > 0 ? sessionData.playerOptions.map(playerFromOption) : sessionData.snapshot.players.map(playerFromSnapshot));
       setSessionEnded(sessionData.sessionEnded);
       setErrorMessage(sessionData.warningMessage);
@@ -150,6 +159,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setActiveMatches([]);
       setCourtCount(null);
       setCompletedMatches([]);
+      setScoreModeEnabled(true);
       setPlayers([]);
       setSessionEnded(false);
     } finally {
@@ -185,6 +195,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
         setActiveMatches(matches.matches);
         setCourtCount(snapshot.organization.number_of_courts);
         setCompletedMatches(completed.matches);
+        setScoreModeEnabled(snapshot.organization.score_mode_enabled);
         setPlayers(playerOptions.length > 0 ? playerOptions.map(playerFromOption) : snapshot.players.map(playerFromSnapshot));
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Could not pass player.");
@@ -334,28 +345,25 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
   );
 
   const completeActiveMatch = useCallback(
-    async (matchId: string, teamOneScore: number, teamTwoScore: number) => {
+    async (matchId: string, result: MatchResultInput) => {
       if (!liveEnabled || !resolvedSessionId) {
-        return;
+        return false;
       }
 
       if (readOnly) {
         setErrorMessage("This queue is view only.");
-        return;
+        return false;
       }
 
       if (!isMatchFlowApiConfigured) {
         setErrorMessage("EXPO_PUBLIC_MATCH_FLOW_API_URL is not configured.");
-        return;
+        return false;
       }
 
       setErrorMessage(null);
 
       try {
-        const response = await completeMatch(matchId, {
-          team_one_score: teamOneScore,
-          team_two_score: teamTwoScore
-        });
+        const response = await completeMatch(matchId, matchResultRequest(result));
         const [snapshot, matches, completed, playerOptions] = await Promise.all([
           getSessionRecommendationSnapshot(resolvedSessionId),
           getActiveMatches(resolvedSessionId),
@@ -366,21 +374,27 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
         setActiveMatches(matches.matches);
         setCourtCount(snapshot.organization.number_of_courts);
         setCompletedMatches(completed.matches);
+        setScoreModeEnabled(snapshot.organization.score_mode_enabled);
         setPlayers(playerOptions.length > 0 ? playerOptions.map(playerFromOption) : snapshot.players.map(playerFromSnapshot));
+        return true;
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "Could not report score.");
+        await refreshCurrentScoreMode(resolvedSessionId, setScoreModeEnabled);
+        setErrorMessage(error instanceof Error ? error.message : "Could not report result.");
+        return false;
       }
     },
     [liveEnabled, readOnly, resolvedSessionId]
   );
 
-  const editCompletedMatchScore = useCallback(
-    async (matchId: string, teamOneScore: number, teamTwoScore: number) => {
+  const editCompletedMatchResult = useCallback(
+    async (matchId: string, result: MatchResultInput) => {
+      const request = matchResultRequest(result);
+
       if (!liveEnabled || !resolvedSessionId) {
         setCompletedMatches((previousMatches) =>
           previousMatches.map((match) =>
             match.id === matchId
-              ? { ...match, team_one_score: teamOneScore, team_two_score: teamTwoScore }
+              ? completedMatchWithResult(match, request)
               : match
           )
         );
@@ -396,12 +410,13 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setErrorMessage(null);
 
       try {
-        await persistCompletedMatchScore(matchId, teamOneScore, teamTwoScore);
+        await persistCompletedMatchResult(matchId, request);
         const completed = await getCompletedMatches(resolvedSessionId);
         setCompletedMatches(completed.matches);
         return true;
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "Could not update score.");
+        await refreshCurrentScoreMode(resolvedSessionId, setScoreModeEnabled);
+        setErrorMessage(error instanceof Error ? error.message : "Could not update result.");
         return false;
       }
     },
@@ -409,12 +424,12 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
   );
 
   const recordCustomMatch = useCallback(
-    async (request: CustomMatchRequest) => {
+    async (input: CustomMatchInput) => {
       if (!liveEnabled || !resolvedSessionId) {
-        const completedMatch = demoCustomMatch(request, players);
+        const completedMatch = demoCustomMatch(input, players);
 
         if (!completedMatch) {
-          setErrorMessage("Choose four different players before saving the score.");
+          setErrorMessage("Choose four different players before saving the result.");
           return false;
         }
 
@@ -444,6 +459,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       setErrorMessage(null);
 
       try {
+        const request = customMatchRequest(input);
         const response = await completeCustomMatch(resolvedSessionId, request);
         const [snapshot, matches, completed, playerOptions] = await Promise.all([
           getSessionRecommendationSnapshot(resolvedSessionId),
@@ -455,15 +471,35 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
         setActiveMatches(matches.matches);
         setCourtCount(snapshot.organization.number_of_courts);
         setCompletedMatches(completed.matches);
+        setScoreModeEnabled(snapshot.organization.score_mode_enabled);
         setPlayers(playerOptions.length > 0 ? playerOptions.map(playerFromOption) : snapshot.players.map(playerFromSnapshot));
         return true;
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "Could not save custom score.");
+        await refreshCurrentScoreMode(resolvedSessionId, setScoreModeEnabled);
+        setErrorMessage(error instanceof Error ? error.message : "Could not save custom result.");
         return false;
       }
     },
     [liveEnabled, players, readOnly, resolvedSessionId]
   );
+
+  const refreshScoreMode = useCallback(async () => {
+    if (!liveEnabled || !resolvedSessionId) {
+      return scoreModeEnabled;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      const snapshot = await getSessionRecommendationSnapshot(resolvedSessionId);
+      const nextScoreModeEnabled = snapshot.organization.score_mode_enabled;
+      setScoreModeEnabled(nextScoreModeEnabled);
+      return nextScoreModeEnabled;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not refresh score mode.");
+      return null;
+    }
+  }, [liveEnabled, resolvedSessionId, scoreModeEnabled]);
 
   useEffect(() => {
     setErrorMessage(null);
@@ -478,7 +514,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       completedMatches,
       completeActiveMatch,
       courtCount,
-      editCompletedMatchScore,
+      editCompletedMatchResult,
       errorMessage,
       live: liveEnabled,
       loading,
@@ -487,6 +523,8 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       recommendations,
       recordCustomMatch,
       refresh,
+      refreshScoreMode,
+      scoreModeEnabled,
       sessionEnded,
       setPlayerInSession,
       startRecommendedMatch
@@ -498,7 +536,7 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       completedMatches,
       completeActiveMatch,
       courtCount,
-      editCompletedMatchScore,
+      editCompletedMatchResult,
       errorMessage,
       liveEnabled,
       loading,
@@ -507,6 +545,8 @@ export function usePlaySession(sessionId?: string | null, options: UsePlaySessio
       recommendations,
       recordCustomMatch,
       refresh,
+      refreshScoreMode,
+      scoreModeEnabled,
       sessionEnded,
       setPlayerInSession,
       startRecommendedMatch
@@ -762,8 +802,76 @@ function addDemoPlayer(players: Player[], displayName: string) {
   ];
 }
 
-function demoCustomMatch(request: CustomMatchRequest, players: Player[]): CompletedMatch | null {
-  const playerIds = [...request.team_one_player_ids, ...request.team_two_player_ids];
+function matchResultRequest(result: MatchResultInput): CompleteMatchRequest {
+  return result.resultMode === "score"
+    ? {
+        result_mode: "score",
+        team_one_score: result.teamOneScore,
+        team_two_score: result.teamTwoScore
+      }
+    : {
+        result_mode: "win_loss",
+        winning_team: result.winningTeam
+      };
+}
+
+function customMatchRequest(input: CustomMatchInput): CustomMatchRequest {
+  const players = {
+    team_one_player_ids: input.teamOnePlayerIds,
+    team_two_player_ids: input.teamTwoPlayerIds
+  };
+
+  return input.resultMode === "score"
+    ? {
+        ...players,
+        result_mode: "score",
+        team_one_score: input.teamOneScore,
+        team_two_score: input.teamTwoScore
+      }
+    : {
+        ...players,
+        result_mode: "win_loss",
+        winning_team: input.winningTeam
+      };
+}
+
+function completedMatchWithResult(
+  match: CompletedMatch,
+  result: CompleteMatchRequest
+): CompletedMatch {
+  if (result.result_mode === "score") {
+    return {
+      ...match,
+      result_mode: "score",
+      team_one_score: result.team_one_score,
+      team_two_score: result.team_two_score,
+      winning_team: result.team_one_score > result.team_two_score ? 1 : 2
+    };
+  }
+
+  return {
+    ...match,
+    result_mode: "win_loss",
+    team_one_score: null,
+    team_two_score: null,
+    winning_team: result.winning_team
+  };
+}
+
+async function refreshCurrentScoreMode(
+  sessionId: string,
+  setScoreModeEnabled: (enabled: boolean) => void
+) {
+  try {
+    const snapshot = await getSessionRecommendationSnapshot(sessionId);
+    setScoreModeEnabled(snapshot.organization.score_mode_enabled);
+  } catch {
+    // Preserve the actionable submission error when a follow-up refresh also fails.
+  }
+}
+
+function demoCustomMatch(request: CustomMatchInput, players: Player[]): CompletedMatch | null {
+  const playerIds = [...request.teamOnePlayerIds, ...request.teamTwoPlayerIds];
 
   if (new Set(playerIds).size !== 4) {
     return null;
@@ -771,10 +879,10 @@ function demoCustomMatch(request: CustomMatchRequest, players: Player[]): Comple
 
   const playersById = new Map(players.map((player) => [player.id, player]));
   const matchPlayers: Array<ActiveMatchPlayer | null> = [
-    demoMatchPlayer(playersById, request.team_one_player_ids[0], 1, 1),
-    demoMatchPlayer(playersById, request.team_one_player_ids[1], 1, 2),
-    demoMatchPlayer(playersById, request.team_two_player_ids[0], 2, 1),
-    demoMatchPlayer(playersById, request.team_two_player_ids[1], 2, 2)
+    demoMatchPlayer(playersById, request.teamOnePlayerIds[0], 1, 1),
+    demoMatchPlayer(playersById, request.teamOnePlayerIds[1], 1, 2),
+    demoMatchPlayer(playersById, request.teamTwoPlayerIds[0], 2, 1),
+    demoMatchPlayer(playersById, request.teamTwoPlayerIds[1], 2, 2)
   ];
 
   if (matchPlayers.some((player) => player === null)) {
@@ -782,16 +890,19 @@ function demoCustomMatch(request: CustomMatchRequest, players: Player[]): Comple
   }
 
   const completedAt = new Date().toISOString();
+  const result = matchResultRequest(request);
 
-  return {
+  return completedMatchWithResult({
     completed_at: completedAt,
     court_number: null,
     id: `custom-${Date.now()}`,
     players: matchPlayers as ActiveMatchPlayer[],
+    result_mode: "score",
     started_at: completedAt,
-    team_one_score: request.team_one_score,
-    team_two_score: request.team_two_score
-  };
+    team_one_score: 0,
+    team_two_score: 1,
+    winning_team: 2
+  }, result);
 }
 
 function demoMatchPlayer(

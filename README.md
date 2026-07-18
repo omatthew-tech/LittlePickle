@@ -89,6 +89,7 @@ createOrganization(...)
 getOrganizationMembersForAdmin(...)
 getOrganizationPlayersForAdmin(...)
 updateOrganizationSettings(...)
+setOrganizationScoreMode(...)
 setOrganizationMemberRole(...)
 createPlayer(...)
 updateOrganizationPlayer(...)
@@ -100,6 +101,7 @@ getSessionPlayerOptions(...)
 getActiveRecommendations(...)
 getActiveMatches(...)
 getCompletedMatches(...)
+updateCompletedMatchResult(...)
 ```
 
 Core FastAPI command flow:
@@ -123,8 +125,8 @@ Live Play screen bridge:
 - Starting a recommended match assigns the lowest open court, creates an active match, then refreshes active matches and recommendations only when another court is open.
 - Recommendations containing a player who has left the queue or is already in an active match are hidden. If no valid recommendations remain while a court is open, Play regenerates recommendations from the available players.
 - When every court is active, recommendation start buttons are disabled until a score is reported.
-- Reporting an active match score completes that match, advances the queue, and regenerates recommendations.
-- Match history reads completed matches and saved scores from Supabase.
+- Reporting an active match result completes that match, advances the queue, and regenerates recommendations. Each league can require either a final score or a selected winning team.
+- Match history reads append-only results from Supabase. Scored results retain their numbers across league mode changes, while winner-only results remain Win/Loss records.
 - Adding/removing a current player updates the session queue and refreshes recommendations.
 - A play session closes automatically when its last active player leaves the queue, invalidates its recommendations, and returns the app from Play to Home.
 - Supabase Cron closes every remaining open session daily at 4:00 AM America/New_York; any match still active at that cutoff is cancelled.
