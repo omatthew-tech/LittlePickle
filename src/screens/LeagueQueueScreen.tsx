@@ -168,6 +168,16 @@ export function LeagueQueueScreen({
     setRosterError(null);
 
     try {
+      if (readOnly && inSession) {
+        const player = players.find((candidate) => candidate.id === playerId);
+
+        if (!player) {
+          return false;
+        }
+
+        return await onAddPlayerToQueue(player.id, player.name);
+      }
+
       if (profile.sessionId) {
         return await setPlayerInExistingSession(playerId, inSession);
       }

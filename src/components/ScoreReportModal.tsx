@@ -45,7 +45,7 @@ export function ScoreReportModal({
   onSubmit,
   resultMode,
   teams,
-  title = "Report score",
+  title,
   visible
 }: ScoreReportModalProps) {
   const [teamOneScore, setTeamOneScore] = useState("");
@@ -75,6 +75,7 @@ export function ScoreReportModal({
   const canSubmit =
     !submitting &&
     (resultMode === "score" ? scoresAreComplete && !scoresAreTied : selectedWinner !== null);
+  const dialogTitle = title ?? (resultMode === "score" ? "Report score" : "Who won?");
 
   async function handleSubmit() {
     if (!canSubmit) {
@@ -98,7 +99,7 @@ export function ScoreReportModal({
   }
 
   return (
-    <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
+    <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.backdrop}
@@ -111,9 +112,16 @@ export function ScoreReportModal({
           style={styles.scrollView}
         >
           <View accessibilityViewIsModal style={styles.dialog}>
-            <Text accessibilityRole="header" style={styles.title}>
-              {title}
-            </Text>
+            <View style={styles.header}>
+              <Text accessibilityRole="header" style={styles.title}>
+                {dialogTitle}
+              </Text>
+              <Text style={styles.subtitle}>
+                {resultMode === "score"
+                  ? "Enter the final score for each team."
+                  : "Choose the winning team to finish the match."}
+              </Text>
+            </View>
 
             <View style={styles.teams}>
               {resultMode === "score" ? (
@@ -130,17 +138,18 @@ export function ScoreReportModal({
                   onSelect={() => setSelectedWinner(1)}
                   selected={selectedWinner === 1}
                   team={teams[0]}
-                  teamNumber={1}
                 />
               )}
 
-              <View style={styles.versusRow}>
-                <View accessibilityElementsHidden importantForAccessibility="no" style={styles.versusLine} />
-                <Text accessibilityLabel="versus" style={styles.versus}>
-                  VS
-                </Text>
-                <View accessibilityElementsHidden importantForAccessibility="no" style={styles.versusLine} />
-              </View>
+              {resultMode === "score" ? (
+                <View style={styles.versusRow}>
+                  <View accessibilityElementsHidden importantForAccessibility="no" style={styles.versusLine} />
+                  <Text accessibilityLabel="versus" style={styles.versus}>
+                    VS
+                  </Text>
+                  <View accessibilityElementsHidden importantForAccessibility="no" style={styles.versusLine} />
+                </View>
+              ) : null}
 
               {resultMode === "score" ? (
                 <TeamScorePanel
@@ -156,7 +165,6 @@ export function ScoreReportModal({
                   onSelect={() => setSelectedWinner(2)}
                   selected={selectedWinner === 2}
                   team={teams[1]}
-                  teamNumber={2}
                 />
               )}
             </View>
@@ -191,13 +199,11 @@ export function ScoreReportModal({
 function TeamWinnerPanel({
   onSelect,
   selected,
-  team,
-  teamNumber
+  team
 }: {
   onSelect: () => void;
   selected: boolean;
   team: MatchTeam;
-  teamNumber: 1 | 2;
 }) {
   const names = team.players.map((player) => player.accessibilityName ?? player.name).join(" and ");
 
@@ -214,7 +220,11 @@ function TeamWinnerPanel({
         pressed ? styles.winnerPanelPressed : null
       ]}
     >
-      <View style={styles.playerList}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.playerList}
+      >
         {team.players.map((player) => (
           <PlayerRow
             accessibilityName={player.accessibilityName}
@@ -228,9 +238,7 @@ function TeamWinnerPanel({
           />
         ))}
       </View>
-      <Text style={[styles.winnerChoiceText, selected ? styles.winnerChoiceTextSelected : null]}>
-        {selected ? "Selected winner" : `Team ${teamNumber} won`}
-      </Text>
+      {selected ? <Text style={styles.winnerChoiceTextSelected}>Winner</Text> : null}
     </Pressable>
   );
 }
@@ -246,7 +254,7 @@ function TeamScorePanel({
   const names = team.players.map((player) => player.accessibilityName ?? player.name).join(" and ");
 
   return (
-    <View style={styles.teamPanel}>
+    <View style={[styles.teamPanel, styles.scoreTeamPanel]}>
       <View style={styles.playerList}>
         {team.players.map((player) => (
           <PlayerRow
@@ -329,9 +337,11 @@ const styles = StyleSheet.create({
     textAlign: "center"
   },
   modalContent: {
+    alignItems: "center",
     flexGrow: 1,
     justifyContent: "center",
-    padding: theme.layout.screenInset
+    paddingHorizontal: theme.layout.screenInset,
+    paddingVertical: theme.layout.sectionGap
   },
   playerList: {
     flex: 1,
@@ -360,15 +370,26 @@ const styles = StyleSheet.create({
     borderColor: theme.color.focus.ring,
     borderWidth: theme.border.focus
   },
+  scoreTeamPanel: {
+    alignItems: "center",
+    flexDirection: "row"
+  },
   scrollView: {
     flex: 1
   },
+  subtitle: {
+    ...theme.type.bodyDefault,
+    color: theme.color.text.secondary,
+    textAlign: "left"
+  },
+  header: {
+    gap: theme.layout.stackCompact
+  },
   teamPanel: {
-    alignItems: "center",
+    backgroundColor: theme.color.surface.card,
     borderColor: theme.color.border.subtle,
     borderRadius: theme.radius.control,
     borderWidth: theme.border.quiet,
-    flexDirection: "row",
     gap: theme.layout.inlineDefault,
     padding: theme.space[12]
   },
@@ -378,7 +399,7 @@ const styles = StyleSheet.create({
   title: {
     ...theme.type.headingPage,
     color: theme.color.text.primary,
-    textAlign: "center"
+    textAlign: "left"
   },
   versus: {
     ...theme.type.labelAction,
@@ -394,23 +415,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: theme.space[8]
   },
-  winnerChoiceText: {
+  winnerChoiceTextSelected: {
     ...theme.type.labelAction,
-    color: theme.color.action.primary,
+    color: theme.color.text.selected,
     textAlign: "center"
   },
-  winnerChoiceTextSelected: {
-    color: theme.color.text.selected
-  },
   winnerPanel: {
-    minHeight: theme.size.targetMinimum
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.layout.inlineDefault,
+    minHeight: theme.size.targetMinimum,
+    padding: theme.space[12]
   },
   winnerPanelPressed: {
     backgroundColor: theme.color.surface.info
   },
   winnerPanelSelected: {
-    backgroundColor: theme.color.surface.info,
+    backgroundColor: theme.color.surface.social,
     borderColor: theme.color.border.active,
-    borderWidth: theme.border.focus
+    borderWidth: theme.border.interactive
   }
 });

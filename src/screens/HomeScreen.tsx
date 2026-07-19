@@ -664,10 +664,25 @@ export function HomeScreen({
       playerId
     });
 
-    onQueueProfileChanged({
-      ...profile,
+    const savedProfile = await saveLocalGuestLeagueProfile({
+      avatarPath: joined.player.profile_image_path,
+      displayName: joined.player.display_name,
+      leagueId: joined.organization.id,
+      leagueName: joined.organization.name,
+      playerId: joined.player.id,
+      rating: joined.player.rating,
       sessionId: joined.session_id
     });
+
+    onQueueProfileChanged({
+      ...profile,
+      ...savedProfile,
+      leagueLocationText: joined.organization.location_text ?? null,
+      leagueNumberOfCourts: joined.organization.number_of_courts,
+      leagueSlug: joined.organization.slug,
+      readOnly: false
+    });
+    onSessionSelected(joined.session_id);
     await loadHomeData();
     return true;
   }
