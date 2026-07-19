@@ -266,7 +266,7 @@ export function LeagueQueueScreen({
           {profile.leagueName}
         </Text>
       </View>
-      <View style={styles.queueCard}>
+      <View style={[styles.queueCard, isQueued ? styles.queueCardQueued : null]}>
         <View style={styles.queueIdentityRow}>
           <View style={styles.queueAvatar}>
             <Text numberOfLines={1} style={styles.queueAvatarText}>
@@ -504,10 +504,13 @@ const styles = StyleSheet.create({
   },
   queueCard: {
     backgroundColor: theme.color.surface.card,
-    borderColor: theme.color.surface.social,
+    borderColor: theme.color.border.subtle,
     borderRadius: theme.radius.card,
     borderWidth: theme.border.quiet,
     padding: theme.layout.cardPadding
+  },
+  queueCardQueued: {
+    borderColor: theme.color.surface.social
   },
   queueDetailsContent: {
     gap: theme.layout.stackDefault,

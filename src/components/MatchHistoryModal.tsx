@@ -109,19 +109,21 @@ function HistoryMatch({
   );
 }
 
-function HistoryTeam({ names, value, winner: isWinner }: { names: string; value: string; winner: boolean }) {
+function HistoryTeam({ names, value, winner: isWinner }: { names: string; value: string | null; winner: boolean }) {
   return (
     <View
-      accessibilityLabel={`${names}, ${value}${isWinner ? ", winner" : ""}`}
+      accessibilityLabel={`${names}${value ? `, ${value}` : ""}${isWinner ? ", winner" : ""}`}
       accessible
       style={styles.teamRow}
     >
       <View style={styles.teamIdentity}>
         <Text style={styles.teamNames}>{names}</Text>
       </View>
-      <View style={styles.scoreGroup}>
-        <Text style={[styles.score, isWinner ? styles.winningScore : null]}>{value}</Text>
-      </View>
+      {value ? (
+        <View style={styles.scoreGroup}>
+          <Text style={[styles.score, isWinner ? styles.winningScore : null]}>{value}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -146,12 +148,12 @@ function scoreText(score: number | null) {
   return score === null ? "--" : String(score);
 }
 
-function outcomeText(winningTeam: 1 | 2 | null, teamNumber: 1 | 2) {
+function outcomeText(winningTeam: 1 | 2 | null, teamNumber: 1 | 2): "Tie" | "Win" | null {
   if (winningTeam === null) {
     return "Tie";
   }
 
-  return winningTeam === teamNumber ? "Win" : "Loss";
+  return winningTeam === teamNumber ? "Win" : null;
 }
 
 function formatMatchDate(value: string) {

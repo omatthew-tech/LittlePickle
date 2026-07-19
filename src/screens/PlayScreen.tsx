@@ -130,7 +130,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     const latestMode = await refreshScoreMode();
 
     if (latestMode === null) {
-      Alert.alert("Could not open custom score", "Check your connection and try again.");
+      Alert.alert("Could not open custom match", "Check your connection and try again.");
       return;
     }
 
@@ -203,9 +203,9 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
       {recommendations.length > 0 ? (
         <View accessibilityLabel="Play actions" style={styles.quickActions}>
           <ActionButton
-            accessibilityLabel="Enter a custom score"
+            accessibilityLabel="Create a custom match"
             icon="score"
-            label="Custom score"
+            label="Custom match"
             onPress={() => void handleOpenCustomScore()}
             style={styles.quickAction}
             variant="text"

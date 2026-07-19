@@ -260,7 +260,7 @@ export function CustomScoreModal({
         >
           <View accessibilityViewIsModal style={styles.dialog}>
             <Text accessibilityRole="header" style={styles.title}>
-              Custom score
+              Custom match
             </Text>
 
             {eligiblePlayers.length < 4 ? (
@@ -379,7 +379,7 @@ function WinnerChoice({
       ]}
     >
       <Text style={[styles.winnerChoiceText, selected ? styles.winnerChoiceTextSelected : null]}>
-        {selected ? "Selected winner" : `Team ${teamNumber} won`}
+        {selected ? "Winner" : `Team ${teamNumber} won`}
       </Text>
     </Pressable>
   );
