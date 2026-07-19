@@ -1,6 +1,11 @@
 import { Platform } from "react-native";
 
 const fontFamilies = {
+  competition: Platform.select({
+    ios: "Snell Roundhand",
+    android: "cursive",
+    default: "cursive"
+  }),
   interface: Platform.select({
     ios: "Cabin",
     default: "Cabin"
@@ -46,6 +51,13 @@ export const theme = {
   },
   font: fontFamilies,
   type: {
+    competitionMark: {
+      fontFamily: fontFamilies.competition,
+      fontSize: 24,
+      fontWeight: "800",
+      lineHeight: 32,
+      letterSpacing: 0
+    },
     headingBrand: {
       fontFamily: fontFamilies.interface,
       fontSize: 32,

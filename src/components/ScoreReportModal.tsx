@@ -223,7 +223,7 @@ function TeamWinnerPanel({
       <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        style={styles.playerList}
+        style={[styles.playerList, selected ? styles.winnerPlayerListSelected : null]}
       >
         {team.players.map((player) => (
           <PlayerRow
@@ -238,7 +238,16 @@ function TeamWinnerPanel({
           />
         ))}
       </View>
-      {selected ? <Text style={styles.winnerChoiceTextSelected}>Winner</Text> : null}
+      {selected ? (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          pointerEvents="none"
+          style={styles.winnerMark}
+        >
+          <Text style={styles.winnerMarkText}>Winner</Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -415,9 +424,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: theme.space[8]
   },
-  winnerChoiceTextSelected: {
-    ...theme.type.labelAction,
-    color: theme.color.text.selected,
+  winnerMark: {
+    alignItems: "center",
+    bottom: 0,
+    justifyContent: "center",
+    position: "absolute",
+    right: theme.space[8],
+    top: 0,
+    transform: [{ rotate: "-18deg" }],
+    width: theme.space[64] + theme.space[32]
+  },
+  winnerMarkText: {
+    ...theme.type.competitionMark,
+    color: theme.color.action.primary,
+    fontStyle: "normal",
     textAlign: "center"
   },
   winnerPanel: {
@@ -425,7 +445,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: theme.layout.inlineDefault,
     minHeight: theme.size.targetMinimum,
-    padding: theme.space[12]
+    padding: theme.space[12],
+    position: "relative"
   },
   winnerPanelPressed: {
     backgroundColor: theme.color.surface.info
@@ -434,5 +455,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surface.social,
     borderColor: theme.color.border.active,
     borderWidth: theme.border.interactive
+  },
+  winnerPlayerListSelected: {
+    paddingRight: theme.space[64] + theme.space[32]
   }
 });
