@@ -1,19 +1,9 @@
-import { Platform } from "react-native";
-
 const fontFamilies = {
-  competition: Platform.select({
-    ios: "Snell Roundhand",
-    android: "cursive",
-    default: "cursive"
-  }),
-  interface: Platform.select({
-    ios: "Cabin",
-    default: "Cabin"
-  }),
-  metric: Platform.select({
-    ios: "Go Mono",
-    default: "Go Mono"
-  })
+  interfaceRegular: "Cabin_400Regular",
+  interfaceSemibold: "Cabin_600SemiBold",
+  interfaceBold: "Cabin_700Bold",
+  metricRegular: "GoMono_400Regular",
+  metricBold: "GoMono_700Bold"
 } as const;
 
 export const theme = {
@@ -51,85 +41,78 @@ export const theme = {
   },
   font: fontFamilies,
   type: {
-    competitionMark: {
-      fontFamily: fontFamilies.competition,
-      fontSize: 24,
-      fontWeight: "800",
-      lineHeight: 32,
-      letterSpacing: 0
-    },
     headingBrand: {
-      fontFamily: fontFamilies.interface,
+      fontFamily: fontFamilies.interfaceBold,
       fontSize: 32,
       fontWeight: "700",
       lineHeight: 40,
-      letterSpacing: 0
+      letterSpacing: -0.32
     },
     headingPage: {
-      fontFamily: fontFamilies.interface,
+      fontFamily: fontFamilies.interfaceBold,
       fontSize: 28,
       fontWeight: "700",
       lineHeight: 36,
-      letterSpacing: 0
+      letterSpacing: -0.28
     },
     headingSection: {
-      fontFamily: fontFamilies.interface,
+      fontFamily: fontFamilies.interfaceSemibold,
       fontSize: 20,
       fontWeight: "600",
       lineHeight: 24,
       letterSpacing: 0
     },
     titleCard: {
-      fontFamily: fontFamilies.interface,
+      fontFamily: fontFamilies.interfaceSemibold,
       fontSize: 17,
       fontWeight: "600",
       lineHeight: 24,
       letterSpacing: 0
     },
     bodyDefault: {
-      fontFamily: fontFamilies.interface,
+      fontFamily: fontFamilies.interfaceRegular,
       fontSize: 16,
       fontWeight: "400",
       lineHeight: 24,
       letterSpacing: 0
     },
     bodySecondary: {
-      fontFamily: fontFamilies.interface,
+      fontFamily: fontFamilies.interfaceRegular,
       fontSize: 14,
       fontWeight: "400",
       lineHeight: 20,
       letterSpacing: 0
     },
     labelAction: {
-      fontFamily: fontFamilies.interface,
+      fontFamily: fontFamilies.interfaceSemibold,
       fontSize: 16,
       fontWeight: "600",
       lineHeight: 20,
       letterSpacing: 0
     },
     labelNavigation: {
-      fontFamily: fontFamilies.interface,
+      fontFamily: fontFamilies.interfaceSemibold,
       fontSize: 12,
       fontWeight: "600",
       lineHeight: 16,
-      letterSpacing: 0
+      letterSpacing: 0.12
     },
     metricScore: {
-      fontFamily: fontFamilies.metric,
+      fontFamily: fontFamilies.metricBold,
       fontSize: 36,
       fontWeight: "700",
       lineHeight: 40,
-      letterSpacing: 0
+      letterSpacing: -0.72
     },
     metricRecord: {
-      fontFamily: fontFamilies.metric,
+      fontFamily: fontFamilies.metricBold,
       fontSize: 24,
       fontWeight: "700",
       lineHeight: 28,
-      letterSpacing: 0
+      letterSpacing: -0.48
     },
     metricDetail: {
-      fontFamily: fontFamilies.metric,
+      fontFamily: fontFamilies.metricRegular,
       fontSize: 14,
       fontWeight: "400",
       lineHeight: 20,

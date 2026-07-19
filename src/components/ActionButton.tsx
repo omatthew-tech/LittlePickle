@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surface.social
   },
   pickleLeafPressed: {
-    backgroundColor: "#B9CE8F"
+    opacity: 0.82
   },
   text: {
     backgroundColor: "transparent",

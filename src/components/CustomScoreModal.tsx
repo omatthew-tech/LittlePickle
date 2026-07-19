@@ -562,6 +562,7 @@ const styles = StyleSheet.create({
   },
   winnerChoiceTextSelected: {
     color: theme.color.text.selected,
+    fontFamily: theme.font.interfaceSemibold,
     fontWeight: "600"
   }
 });

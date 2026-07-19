@@ -1589,11 +1589,13 @@ const styles = StyleSheet.create({
   avatarImageText: {
     ...theme.type.bodySecondary,
     color: theme.color.text.selected,
+    fontFamily: theme.font.interfaceSemibold,
     fontWeight: "600"
   },
   avatarText: {
     ...theme.type.bodySecondary,
     color: theme.color.text.selected,
+    fontFamily: theme.font.interfaceSemibold,
     fontWeight: "600"
   },
   bodyText: {
@@ -1639,6 +1641,7 @@ const styles = StyleSheet.create({
   createLeagueLink: {
     ...theme.type.labelAction,
     color: theme.color.action.primary,
+    fontFamily: theme.font.interfaceBold,
     fontWeight: "700",
     textDecorationLine: "underline"
   },

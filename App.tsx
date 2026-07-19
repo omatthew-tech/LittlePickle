@@ -1,3 +1,4 @@
+import { useFonts } from "expo-font";
 import { useCallback, useState } from "react";
 import { StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -11,6 +12,18 @@ import { PlayScreen } from "./src/screens/PlayScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({
+    Cabin_400Regular: require("@expo-google-fonts/cabin/400Regular/Cabin_400Regular.ttf"),
+    Cabin_600SemiBold: require("@expo-google-fonts/cabin/600SemiBold/Cabin_600SemiBold.ttf"),
+    Cabin_700Bold: require("@expo-google-fonts/cabin/700Bold/Cabin_700Bold.ttf"),
+    GoMono_400Regular: require("./assets/fonts/Go-Mono.ttf"),
+    GoMono_700Bold: require("./assets/fonts/Go-Mono-Bold.ttf")
+  });
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
     <AuthProvider>
       <AppShell />

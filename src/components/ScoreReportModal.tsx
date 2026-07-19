@@ -435,9 +435,8 @@ const styles = StyleSheet.create({
     width: theme.space[64] + theme.space[32]
   },
   winnerMarkText: {
-    ...theme.type.competitionMark,
+    ...theme.type.labelAction,
     color: theme.color.action.primary,
-    fontStyle: "normal",
     textAlign: "center"
   },
   winnerPanel: {

@@ -26,7 +26,8 @@
           "photosPermission": "LittlePickle saves league QR codes to your photo library.",
           "savePhotosPermission": "LittlePickle saves league QR codes to your photo library."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "ios": {
       "bundleIdentifier": "com.littlepickle.app",

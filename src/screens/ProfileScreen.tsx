@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
   },
   avatarInitials: {
     color: theme.color.text.selected,
-    fontFamily: theme.font.interface,
+    fontFamily: theme.font.interfaceSemibold,
     fontSize: 40,
     fontWeight: "600",
     letterSpacing: 0,
@@ -543,10 +543,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.control,
     borderWidth: theme.border.interactive,
     color: theme.color.text.primary,
-    height: 56,
+    height: theme.size.controlMinimumHeight,
     includeFontPadding: false,
     lineHeight: theme.space[24],
-    minHeight: 56,
+    minHeight: theme.size.controlMinimumHeight,
     paddingHorizontal: theme.space[16],
     textAlignVertical: "center"
   },
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     marginTop: theme.space[40]
   },
   pageTitle: {
-    ...theme.type.headingBrand,
+    ...theme.type.headingPage,
     color: theme.color.text.primary
   },
   profileHero: {
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   screen: {
     backgroundColor: theme.color.surface.canvas,
     flexGrow: 1,
-    paddingHorizontal: theme.space[24]
+    paddingHorizontal: theme.layout.screenInset
   },
   switcherHeader: {
     alignItems: "center",

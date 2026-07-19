@@ -155,6 +155,7 @@ const styles = StyleSheet.create({
   avatarText: {
     ...theme.type.bodySecondary,
     color: theme.color.text.selected,
+    fontFamily: theme.font.interfaceSemibold,
     fontWeight: "600"
   },
   identity: {
