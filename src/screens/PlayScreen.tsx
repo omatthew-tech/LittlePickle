@@ -249,7 +249,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
             playerAction="none"
             primaryActionLabel="Report score"
             primaryActionTone="pickleLeaf"
-            teams={activeMatchTeams(match)}
+            teams={activeMatchTeams(match, displayNamesByPlayerId)}
           />
         ))}
       </View>
