@@ -33,7 +33,6 @@ export type PlayerSnapshot = {
   id: string;
   name: string;
   skill: number;
-  recent_form_adjustment?: number;
   profile_image_path: string | null;
   rounds_waiting: number;
   queue_position: number;

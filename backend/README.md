@@ -188,7 +188,8 @@ Recommendation batches are stored with `replace_recommendation_batch_v2`,
 which rejects stale queue versions and returns an existing same-version batch
 idempotently.
 
-The snapshot also includes each player's bounded `recent_form_adjustment`,
-derived from the latest completed results in the current session. The optimizer
-uses rating plus recent form for match quality while keeping the stored rating
-unchanged in recommendation responses.
+Completed match results update `players.rating` permanently with a team Elo
+adjustment. The optimizer consumes that stored rating directly; there is no
+session-only form adjustment. `player_rating_events` records each match's
+before/after values, and a later result correction replaces the original
+adjustment instead of applying a second one.

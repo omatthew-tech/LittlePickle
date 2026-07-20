@@ -113,6 +113,10 @@ def main() -> None:
             {"p_organization_id": organization_id},
         )
         assert len(players) >= 8, "expected current user plus seven guest players"
+        rating_before_by_id = {
+            player["id"]: float(player["rating"])
+            for player in players[:8]
+        }
 
         session_id = _rpc(
             settings,
@@ -188,15 +192,15 @@ def main() -> None:
         )
         _assert_recommendations(completed, expected_count=2)
 
-        form_snapshot = _rpc(
+        rating_snapshot = _rpc(
             settings,
             access_token,
             "authorized_session_recommendation_snapshot",
             {"p_session_id": session_id},
         )
-        form_by_player_id = {
-            player["id"]: player["recent_form_adjustment"]
-            for player in form_snapshot["players"]
+        rating_after_by_id = {
+            player["id"]: float(player["skill"])
+            for player in rating_snapshot["players"]
         }
         first_team_one_ids = {
             player["player_id"]
@@ -208,8 +212,85 @@ def main() -> None:
             for player in first_recommendation["players"]
             if player["team_number"] == 2
         }
-        assert all(form_by_player_id[player_id] > 0 for player_id in first_team_one_ids)
-        assert all(form_by_player_id[player_id] < 0 for player_id in first_team_two_ids)
+        assert all(
+            rating_after_by_id[player_id] > rating_before_by_id[player_id]
+            for player_id in first_team_one_ids
+        )
+        assert all(
+            rating_after_by_id[player_id] < rating_before_by_id[player_id]
+            for player_id in first_team_two_ids
+        )
+        assert all(
+            "recent_form_adjustment" not in player
+            for player in rating_snapshot["players"]
+        )
+
+        _rpc(
+            settings,
+            access_token,
+            "update_completed_match_result",
+            {
+                "p_match_id": match_id,
+                "p_result_mode": "win_loss",
+                "p_team_one_score": None,
+                "p_team_two_score": None,
+                "p_winning_team": 1,
+            },
+        )
+        same_result_snapshot = _rpc(
+            settings,
+            access_token,
+            "authorized_session_recommendation_snapshot",
+            {"p_session_id": session_id},
+        )
+        assert {
+            player["id"]: float(player["skill"])
+            for player in same_result_snapshot["players"]
+        } == rating_after_by_id, "re-reporting a result must not double-adjust ratings"
+
+        _rpc(
+            settings,
+            access_token,
+            "update_completed_match_result",
+            {
+                "p_match_id": match_id,
+                "p_result_mode": "win_loss",
+                "p_team_one_score": None,
+                "p_team_two_score": None,
+                "p_winning_team": 2,
+            },
+        )
+        corrected_snapshot = _rpc(
+            settings,
+            access_token,
+            "authorized_session_recommendation_snapshot",
+            {"p_session_id": session_id},
+        )
+        corrected_rating_by_id = {
+            player["id"]: float(player["skill"])
+            for player in corrected_snapshot["players"]
+        }
+        assert all(
+            corrected_rating_by_id[player_id] < rating_before_by_id[player_id]
+            for player_id in first_team_one_ids
+        )
+        assert all(
+            corrected_rating_by_id[player_id] > rating_before_by_id[player_id]
+            for player_id in first_team_two_ids
+        )
+
+        _rpc(
+            settings,
+            access_token,
+            "update_completed_match_result",
+            {
+                "p_match_id": match_id,
+                "p_result_mode": "win_loss",
+                "p_team_one_score": None,
+                "p_team_two_score": None,
+                "p_winning_team": 1,
+            },
+        )
 
         history = _rpc(
             settings,

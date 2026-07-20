@@ -116,16 +116,13 @@ def test_four_players_receive_best_75_25_pairing():
 
 
 @pytest.mark.parametrize("force_fallback", [False, True])
-def test_recent_results_split_repeated_winners(monkeypatch, force_fallback):
+def test_permanent_rating_changes_split_previous_winners(monkeypatch, force_fallback):
     if force_fallback:
         monkeypatch.setattr(recommendation_module, "_load_cp_model", lambda: None)
 
     data = _snapshot(player_count=4, number_of_courts=1)
     for player in data["players"]:
-        player["skill"] = 3.0
-        player["recent_form_adjustment"] = (
-            0.25 if player["id"] in {"p01", "p02"} else -0.25
-        )
+        player["skill"] = 3.1 if player["id"] in {"p01", "p02"} else 2.9
     snapshot = RecommendationSnapshot.model_validate(data)
 
     response = build_recommendation_response(snapshot, algorithm_version="test")
@@ -141,7 +138,7 @@ def test_recent_results_split_repeated_winners(monkeypatch, force_fallback):
     ]
 
     assert all(len(team & winners) == 1 for team in teams)
-    assert {player.skill for player in recommendation.players} == {3.0}
+    assert {player.skill for player in recommendation.players} == {2.9, 3.1}
     assert recommendation.team_average_skill_difference == 0
 
 

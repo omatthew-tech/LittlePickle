@@ -23,7 +23,6 @@ class PlayerSnapshot(BaseModel):
     id: UUID | str
     name: str
     skill: float = Field(gt=0)
-    recent_form_adjustment: float = Field(default=0.0, ge=-1.0, le=1.0)
     profile_image_path: str | None = None
     rounds_waiting: int = Field(default=0, ge=0)
     queue_position: int = Field(ge=0)

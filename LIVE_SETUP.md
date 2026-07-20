@@ -119,7 +119,7 @@ LittlePickle is developed iOS-first, but Android is now an active parallel targe
 10. Start one recommendation and confirm the other coordinated recommendations remain available for their assigned courts.
 11. If every court is active, confirm recommendation start buttons show `Courts full`.
 12. Report a score.
-13. Confirm the queue advances and new recommendations appear. With four equally rated players, repeat a decisive result and confirm the next recommendation splits the prior winners across the two teams.
+13. Confirm all four permanent roster ratings change, the queue advances, and new recommendations appear. With four equally rated players, repeat a result and confirm the next recommendation splits the prior winners across the two teams.
 
 ## 6. Deployment
 

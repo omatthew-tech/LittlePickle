@@ -68,7 +68,7 @@ LittlePickle uses Supabase directly for ordinary app data and a small FastAPI se
 - FastAPI handles match completion, pass-player actions, accepting recommendations, and recommendation regeneration.
 - FastAPI returns one coordinated, disjoint recommendation per usable open court, capped by the available player count.
 - Players who sat out the previous opportunity are guaranteed a place in the next batch whenever court capacity allows; the remaining selection uses a 60% court-time fairness and 40% match-balance objective.
-- Match balance combines each player's stored rating with a bounded, recency-weighted signal from completed results in the current session, so repeated one-sided outcomes cause the next teams to rebalance without rewriting roster ratings.
+- Every completed match permanently updates `players.rating` with a team Elo adjustment. Even matches move each player by `0.10`; expected wins move less and upsets move more, so future sessions retain the evidence from prior results.
 
 Auth behavior:
 
@@ -127,7 +127,7 @@ Live Play screen bridge:
 - Starting a recommended match assigns the lowest open court, creates an active match, then refreshes active matches and recommendations only when another court is open.
 - Recommendations containing a player who has left the queue or is already in an active match are hidden. If no valid recommendations remain while a court is open, Play regenerates recommendations from the available players.
 - When every court is active, recommendation start buttons are disabled until a score is reported.
-- Reporting an active match result completes that match, advances the queue, and regenerates recommendations. Each league can require either a final score or a selected winning team.
+- Reporting an active match result completes that match, permanently updates all four player ratings, advances the queue, and regenerates recommendations. Each league can require either a final score or a selected winning team.
 - Match history reads append-only results from Supabase. Scored results retain their numbers across league mode changes, while winner-only results remain Win/Loss records.
 - Adding/removing a current player or changing a rating invalidates the old batch and refreshes recommendations.
 - A play session closes automatically when its last active player leaves the queue, invalidates its recommendations, and returns the app from Play to Home.
