@@ -26,6 +26,7 @@ export type SessionSnapshot = {
   id: string;
   status: string;
   current_round: number;
+  recommendation_version: number;
 };
 
 export type PlayerSnapshot = {
@@ -53,6 +54,7 @@ export type SessionPlayerOption = {
 export type RecommendationSnapshot = {
   organization: OrganizationSnapshot;
   session: SessionSnapshot;
+  open_court_numbers: number[];
   players: PlayerSnapshot[];
 };
 

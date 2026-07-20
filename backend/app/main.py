@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings, get_settings
@@ -20,7 +20,52 @@ from .models import (
 )
 from .recommendations import build_recommendation_response
 from .email_delivery import send_league_qr_email
-from .supabase_gateway import SupabaseGateway, bearer_token_from_header
+from .supabase_gateway import (
+    StaleRecommendationVersionError,
+    SupabaseGateway,
+    bearer_token_from_header,
+)
+
+
+async def generate_and_store_recommendations(
+    gateway: SupabaseGateway,
+    snapshot: RecommendationSnapshot,
+    algorithm_version: str,
+    access_token: str,
+    generated_after_match_id: UUID | None = None,
+) -> RecommendationResponse:
+    response = build_recommendation_response(
+        snapshot=snapshot,
+        algorithm_version=algorithm_version,
+    )
+    try:
+        return await gateway.store_recommendations(
+            response,
+            expected_recommendation_version=snapshot.session.recommendation_version,
+            generated_after_match_id=generated_after_match_id,
+        )
+    except StaleRecommendationVersionError:
+        latest_snapshot = await gateway.regenerate_session(
+            snapshot.session.id,
+            access_token,
+        )
+        latest_response = build_recommendation_response(
+            snapshot=latest_snapshot,
+            algorithm_version=algorithm_version,
+        )
+        try:
+            return await gateway.store_recommendations(
+                latest_response,
+                expected_recommendation_version=(
+                    latest_snapshot.session.recommendation_version
+                ),
+                generated_after_match_id=generated_after_match_id,
+            )
+        except StaleRecommendationVersionError as error:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The queue changed again; refresh recommendations and retry.",
+            ) from error
 
 
 def create_app() -> FastAPI:
@@ -63,11 +108,13 @@ def create_app() -> FastAPI:
         access_token = bearer_token_from_header(authorization)
         gateway = SupabaseGateway(current_settings)
         snapshot = await gateway.complete_match(match_id, request, access_token)
-        response = build_recommendation_response(
+        return await generate_and_store_recommendations(
+            gateway=gateway,
             snapshot=snapshot,
             algorithm_version=current_settings.algorithm_version,
+            access_token=access_token,
+            generated_after_match_id=match_id,
         )
-        return await gateway.store_recommendations(response, generated_after_match_id=match_id)
 
     @app.post(
         "/sessions/{session_id}/matches/custom",
@@ -86,12 +133,11 @@ def create_app() -> FastAPI:
             request,
             access_token,
         )
-        response = build_recommendation_response(
+        return await generate_and_store_recommendations(
+            gateway=gateway,
             snapshot=snapshot,
             algorithm_version=current_settings.algorithm_version,
-        )
-        return await gateway.store_recommendations(
-            response,
+            access_token=access_token,
             generated_after_match_id=match_id,
         )
 
@@ -108,11 +154,12 @@ def create_app() -> FastAPI:
         access_token = bearer_token_from_header(authorization)
         gateway = SupabaseGateway(current_settings)
         snapshot = await gateway.pass_player(recommendation_id, request, access_token)
-        response = build_recommendation_response(
+        return await generate_and_store_recommendations(
+            gateway=gateway,
             snapshot=snapshot,
             algorithm_version=current_settings.algorithm_version,
+            access_token=access_token,
         )
-        return await gateway.store_recommendations(response)
 
     @app.post(
         "/recommendations/{recommendation_id}/accept",
@@ -144,11 +191,12 @@ def create_app() -> FastAPI:
         access_token = bearer_token_from_header(authorization)
         gateway = SupabaseGateway(current_settings)
         snapshot = await gateway.regenerate_session(session_id, access_token)
-        response = build_recommendation_response(
+        return await generate_and_store_recommendations(
+            gateway=gateway,
             snapshot=snapshot,
             algorithm_version=current_settings.algorithm_version,
+            access_token=access_token,
         )
-        return await gateway.store_recommendations(response)
 
     @app.post(
         "/leagues/{league_id}/qr-email",

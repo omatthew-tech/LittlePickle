@@ -565,6 +565,7 @@ type RosterSetters = {
 
 async function reloadAfterRosterChange(sessionId: string, setters: RosterSetters) {
   const sessionData = await loadSessionData(sessionId, {
+    forceRegenerateRecommendations: true,
     regenerateRecommendations: true
   });
 
@@ -589,7 +590,10 @@ type LoadedSessionData = {
 
 async function loadSessionData(
   sessionId: string,
-  options: { regenerateRecommendations: boolean }
+  options: {
+    forceRegenerateRecommendations?: boolean;
+    regenerateRecommendations: boolean;
+  }
 ): Promise<LoadedSessionData> {
   const [activeRecommendations, snapshot, matches, completed, playerOptions] = await Promise.all([
     getActiveRecommendations(sessionId),
@@ -624,7 +628,10 @@ async function loadSessionData(
   );
 
   if (
-    availableRecommendations.recommendations.length > 0 ||
+    (
+      availableRecommendations.recommendations.length > 0 &&
+      !options.forceRegenerateRecommendations
+    ) ||
     !options.regenerateRecommendations ||
     !isMatchFlowApiConfigured ||
     !hasOpenCourt

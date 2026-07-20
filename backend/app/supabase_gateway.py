@@ -17,6 +17,10 @@ from .models import (
 )
 
 
+class StaleRecommendationVersionError(RuntimeError):
+    """The queue changed after a recommendation snapshot was generated."""
+
+
 class SupabaseGateway:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -88,7 +92,7 @@ class SupabaseGateway:
         access_token: str,
     ) -> RecommendationSnapshot:
         data = await self._rpc_as_user(
-            "session_recommendation_snapshot",
+            "authorized_session_recommendation_snapshot",
             {"p_session_id": str(session_id)},
             access_token,
         )
@@ -139,6 +143,7 @@ class SupabaseGateway:
     async def store_recommendations(
         self,
         response: RecommendationResponse,
+        expected_recommendation_version: int,
         generated_after_match_id: UUID | None = None,
     ) -> RecommendationResponse:
         payload = {
@@ -147,12 +152,13 @@ class SupabaseGateway:
             if generated_after_match_id
             else None,
             "p_algorithm_version": response.algorithm_version,
+            "p_expected_recommendation_version": expected_recommendation_version,
             "p_recommendations": [
                 recommendation.model_dump(mode="json")
                 for recommendation in response.recommendations
             ],
         }
-        stored = await self._rpc_as_service("replace_recommendation_batch", payload)
+        stored = await self._rpc_as_service("replace_recommendation_batch_v2", payload)
         batch_id = stored.get("batch_id") if isinstance(stored, dict) else stored
         ids_by_rank = {
             item["rank"]: item["id"]
@@ -216,12 +222,21 @@ class SupabaseGateway:
             response = await client.post(url, headers=headers, json=payload)
 
         if response.status_code >= 400:
+            error_payload = _safe_json(response)
+            if (
+                function_name == "replace_recommendation_batch_v2"
+                and isinstance(error_payload, dict)
+                and error_payload.get("code") == "40001"
+            ):
+                raise StaleRecommendationVersionError(
+                    "Recommendation state changed while the batch was generated."
+                )
             raise HTTPException(
                 status_code=_map_supabase_status(response.status_code),
                 detail={
                     "supabase_status": response.status_code,
                     "function": function_name,
-                    "error": _safe_json(response),
+                    "error": error_payload,
                 },
             )
 

@@ -16,6 +16,7 @@ class SessionSnapshot(BaseModel):
     id: UUID | str
     status: str = "open"
     current_round: int = Field(default=0, ge=0)
+    recommendation_version: int = Field(default=0, ge=0)
 
 
 class PlayerSnapshot(BaseModel):
@@ -31,7 +32,41 @@ class PlayerSnapshot(BaseModel):
 class RecommendationSnapshot(BaseModel):
     organization: OrganizationSnapshot
     session: SessionSnapshot
+    open_court_numbers: list[int] = Field(default_factory=list)
     players: list[PlayerSnapshot]
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_open_courts(cls, data: object) -> object:
+        if not isinstance(data, dict) or "open_court_numbers" in data:
+            return data
+
+        organization = data.get("organization")
+        if not isinstance(organization, dict):
+            return data
+
+        court_count = organization.get("number_of_courts")
+        if not isinstance(court_count, int) or court_count < 1:
+            return data
+
+        return {
+            **data,
+            "open_court_numbers": list(range(1, court_count + 1)),
+        }
+
+    @model_validator(mode="after")
+    def require_valid_open_courts(self) -> "RecommendationSnapshot":
+        courts = self.open_court_numbers
+        if len(courts) != len(set(courts)):
+            raise ValueError("open_court_numbers must be unique")
+        if courts != sorted(courts):
+            raise ValueError("open_court_numbers must be sorted")
+        if any(
+            court < 1 or court > self.organization.number_of_courts
+            for court in courts
+        ):
+            raise ValueError("open_court_numbers must belong to the session")
+        return self
 
 
 class RecommendationPlayer(BaseModel):

@@ -114,9 +114,9 @@ LittlePickle is developed iOS-first, but Android is now an active parallel targe
 5. With a signed-in Supabase session available, create an organization and set the court count.
 6. Add enough players to the roster.
 7. Start a play session from Home.
-8. Confirm Play shows `number_of_courts + 1` recommendations.
-9. Start the best recommendation.
-10. If more courts are open, confirm new recommendations are available for the next court.
+8. Confirm Play shows one disjoint recommendation per usable open court, capped by one match per four available players.
+9. Confirm players who sat out the prior opportunity are included whenever the available court capacity allows.
+10. Start one recommendation and confirm the other coordinated recommendations remain available for their assigned courts.
 11. If every court is active, confirm recommendation start buttons show `Courts full`.
 12. Report a score.
 13. Confirm the queue advances and new recommendations appear.

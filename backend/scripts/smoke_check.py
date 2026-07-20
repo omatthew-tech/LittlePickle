@@ -25,13 +25,13 @@ def main() -> None:
     preview = client.post("/recommendations/preview", json=_snapshot(number_of_courts=2))
     assert preview.status_code == 200
     preview_body = preview.json()
-    assert preview_body["recommendation_count"] == 3
-    assert len(preview_body["recommendations"]) == 3
+    assert preview_body["recommendation_count"] == 2
+    assert len(preview_body["recommendations"]) == 2
 
     snapshot = RecommendationSnapshot.model_validate(_snapshot(number_of_courts=3))
     response = build_recommendation_response(snapshot, algorithm_version="smoke")
-    assert response.recommendation_count == 4
-    assert len(response.recommendations) == 4
+    assert response.recommendation_count == 3
+    assert len(response.recommendations) == 3
     assert any(
         player.profile_image_path == "avatars/p01.jpg"
         for recommendation in response.recommendations
@@ -57,7 +57,7 @@ def main() -> None:
             json={"team_one_score": 11, "team_two_score": 7},
         )
         assert completed.status_code == 200, completed.text
-        assert completed.json()["recommendation_count"] == 3
+        assert completed.json()["recommendation_count"] == 2
         assert FakeGateway.stores[-1] == match_id
 
         passed = client.post(
@@ -69,7 +69,7 @@ def main() -> None:
             },
         )
         assert passed.status_code == 200, passed.text
-        assert passed.json()["recommendation_count"] == 3
+        assert passed.json()["recommendation_count"] == 2
         assert FakeGateway.stores[-1] is None
     finally:
         main_module.SupabaseGateway = original_gateway
@@ -93,7 +93,13 @@ class FakeGateway:
         assert access_token == "smoke-token"
         return RecommendationSnapshot.model_validate(_snapshot(number_of_courts=2))
 
-    async def store_recommendations(self, response, generated_after_match_id=None):
+    async def store_recommendations(
+        self,
+        response,
+        expected_recommendation_version,
+        generated_after_match_id=None,
+    ):
+        assert expected_recommendation_version == 0
         self.stores.append(str(generated_after_match_id) if generated_after_match_id else None)
         return response.model_copy(update={"batch_id": "fake-batch"})
 
@@ -133,16 +139,18 @@ async def _check_supabase_gateway_contract(response) -> None:
 
     stored = await gateway.store_recommendations(
         response,
+        expected_recommendation_version=0,
         generated_after_match_id=match_id,
     )
 
     assert stored.batch_id == "stored-batch"
     assert stored.recommendations[0].id == "stored-rec-1"
     service_function, service_payload = gateway.service_calls[0]
-    assert service_function == "replace_recommendation_batch"
+    assert service_function == "replace_recommendation_batch_v2"
     assert service_payload["p_session_id"] == "sample-session"
     assert service_payload["p_generated_after_match_id"] == str(match_id)
     assert service_payload["p_algorithm_version"] == "smoke"
+    assert service_payload["p_expected_recommendation_version"] == 0
     assert len(service_payload["p_recommendations"]) == response.recommendation_count
     assert any(
         player["profile_image_path"] == "avatars/p01.jpg"
@@ -172,11 +180,13 @@ async def _check_supabase_gateway_contract(response) -> None:
     assert accepted.match_id == "match-from-rpc"
     assert gateway.user_calls == [
         (
-            "complete_match_for_recommendations",
+            "complete_match_result_for_recommendations",
             {
                 "p_match_id": "00000000-0000-0000-0000-000000000111",
+                "p_result_mode": "score",
                 "p_team_one_score": 11,
                 "p_team_two_score": 7,
+                "p_winning_team": None,
             },
             "user-token",
         ),

@@ -143,7 +143,7 @@ def main() -> None:
             f"/sessions/{session_id}/recommendations/regenerate",
             authorization,
         )
-        _assert_recommendations(regenerated, expected_count=3)
+        _assert_recommendations(regenerated, expected_count=2)
 
         first_recommendation = regenerated["recommendations"][0]
         accepted = _api_post(
@@ -186,7 +186,7 @@ def main() -> None:
             authorization,
             {"result_mode": "win_loss", "winning_team": 1},
         )
-        _assert_recommendations(completed, expected_count=3)
+        _assert_recommendations(completed, expected_count=2)
 
         history = _rpc(
             settings,
@@ -222,7 +222,7 @@ def main() -> None:
                 "team_two_score": 8,
             },
         )
-        _assert_recommendations(custom_completed, expected_count=3)
+        _assert_recommendations(custom_completed, expected_count=2)
 
         history = _rpc(
             settings,
@@ -271,7 +271,7 @@ def main() -> None:
             authorization,
             {"result_mode": "win_loss", "winning_team": 2},
         )
-        _assert_recommendations(completed, expected_count=3)
+        _assert_recommendations(completed, expected_count=2)
 
         history_while_off = _rpc(
             settings,
@@ -296,7 +296,7 @@ def main() -> None:
                 "player_id": pass_player["player_id"],
             },
         )
-        _assert_recommendations(passed, expected_count=3)
+        _assert_recommendations(passed, expected_count=2)
 
         for player in players[:8]:
             final_snapshot = _rpc(
@@ -516,6 +516,14 @@ def _assert_recommendations(response: dict[str, Any], expected_count: int) -> No
     assert response["recommendation_count"] == expected_count
     assert len(response["recommendations"]) == expected_count
     assert response["recommendations"][0]["id"], "stored recommendation id missing"
+    court_numbers = [item["court_number"] for item in response["recommendations"]]
+    assert len(court_numbers) == len(set(court_numbers))
+    player_ids = [
+        player["player_id"]
+        for recommendation in response["recommendations"]
+        for player in recommendation["players"]
+    ]
+    assert len(player_ids) == len(set(player_ids))
 
 
 def _assert_recommendations_exclude_players(

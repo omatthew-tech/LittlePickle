@@ -16,20 +16,27 @@ def test_store_recommendations_maps_supabase_ids_to_response():
     response = RecommendationResponse.model_validate(_recommendation_response())
     match_id = UUID("00000000-0000-0000-0000-000000000111")
 
-    stored = asyncio.run(gateway.store_recommendations(response, generated_after_match_id=match_id))
+    stored = asyncio.run(
+        gateway.store_recommendations(
+            response,
+            expected_recommendation_version=7,
+            generated_after_match_id=match_id,
+        )
+    )
 
     assert gateway.service_calls == [
         (
-            "replace_recommendation_batch",
+            "replace_recommendation_batch_v2",
             {
                 "p_session_id": "session-1",
                 "p_generated_after_match_id": str(match_id),
                 "p_algorithm_version": "test",
+                "p_expected_recommendation_version": 7,
                 "p_recommendations": [
                     {
                         "id": None,
                         "rank": 1,
-                        "court_number": None,
+                        "court_number": 1,
                         "quality_score": 0.1,
                         "team_average_skill_difference": 0.05,
                         "player_skill_spread": 0.4,
@@ -231,6 +238,25 @@ def test_snapshot_defaults_score_mode_on_for_legacy_responses():
     assert gateway_snapshot(snapshot).organization.score_mode_enabled is True
 
 
+def test_regeneration_uses_membership_protected_snapshot_rpc():
+    gateway = RecordingGateway()
+
+    asyncio.run(
+        gateway.regenerate_session(
+            UUID("00000000-0000-0000-0000-000000000333"),
+            "user-token",
+        )
+    )
+
+    assert gateway.user_calls == [
+        (
+            "authorized_session_recommendation_snapshot",
+            {"p_session_id": "00000000-0000-0000-0000-000000000333"},
+            "user-token",
+        )
+    ]
+
+
 class RecordingGateway(SupabaseGateway):
     def __init__(self) -> None:
         super().__init__(
@@ -278,7 +304,7 @@ def _recommendation_response():
         "recommendations": [
             {
                 "rank": 1,
-                "court_number": None,
+                "court_number": 1,
                 "quality_score": 0.1,
                 "team_average_skill_difference": 0.05,
                 "player_skill_spread": 0.4,

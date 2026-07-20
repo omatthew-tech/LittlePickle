@@ -66,7 +66,8 @@ LittlePickle uses Supabase directly for ordinary app data and a small FastAPI se
 - Supabase Postgres stores organizations, admins, players, sessions, queue state, matches, scores, pass events, and recommendation batches.
 - Supabase Storage stores profile pictures in the `profile-pictures` bucket.
 - FastAPI handles match completion, pass-player actions, accepting recommendations, and recommendation regeneration.
-- The recommendation count is always `organization.number_of_courts + 1` when enough players are available.
+- FastAPI returns one coordinated, disjoint recommendation per usable open court, capped by the available player count.
+- Players who sat out the previous opportunity are guaranteed a place in the next batch whenever court capacity allows; the remaining selection uses a 60% court-time fairness and 40% match-balance objective.
 
 Auth behavior:
 
@@ -121,13 +122,13 @@ Live Play screen bridge:
 - Organization admins can update name, slug, court count, member roles, and roster players from Home.
 - Players are shared league records rather than auth-user-owned records; any device may select and manage the same player.
 - Profile edits and user switching update the locally selected shared player and flow through to queue and match cards.
-- If there are no active recommendations and `EXPO_PUBLIC_MATCH_FLOW_API_URL` is set, Play asks FastAPI to regenerate and store recommendations.
+- If there are no active recommendations and `EXPO_PUBLIC_MATCH_FLOW_API_URL` is set, Play asks FastAPI to regenerate and store recommendations against a versioned queue snapshot.
 - Starting a recommended match assigns the lowest open court, creates an active match, then refreshes active matches and recommendations only when another court is open.
 - Recommendations containing a player who has left the queue or is already in an active match are hidden. If no valid recommendations remain while a court is open, Play regenerates recommendations from the available players.
 - When every court is active, recommendation start buttons are disabled until a score is reported.
 - Reporting an active match result completes that match, advances the queue, and regenerates recommendations. Each league can require either a final score or a selected winning team.
 - Match history reads append-only results from Supabase. Scored results retain their numbers across league mode changes, while winner-only results remain Win/Loss records.
-- Adding/removing a current player updates the session queue and refreshes recommendations.
+- Adding/removing a current player or changing a rating invalidates the old batch and refreshes recommendations.
 - A play session closes automatically when its last active player leaves the queue, invalidates its recommendations, and returns the app from Play to Home.
 - Supabase Cron closes every remaining open session daily at 4:00 AM America/New_York; any match still active at that cutoff is cancelled.
 - The camera QR scanner resolves LittlePickle league QR values and opens the join queue.

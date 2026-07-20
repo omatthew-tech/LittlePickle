@@ -114,7 +114,9 @@ SMTP_USE_TLS
 
 ## Local preview without Supabase
 
-`POST /recommendations/preview` accepts a snapshot and returns `number_of_courts + 1` recommendations:
+`POST /recommendations/preview` accepts a snapshot and returns one coordinated,
+disjoint recommendation per usable open court (and no more than one match per
+four available players):
 
 ```json
 {
@@ -125,8 +127,10 @@ SMTP_USE_TLS
   "session": {
     "id": "sample-session",
     "status": "open",
-    "current_round": 0
+    "current_round": 0,
+    "recommendation_version": 0
   },
+  "open_court_numbers": [1, 2, 3],
   "players": [
     { "id": "p01", "name": "Avery", "skill": 3.6, "rounds_waiting": 1, "queue_position": 0, "games_played": 0 },
     { "id": "p02", "name": "Blake", "skill": 3.55, "rounds_waiting": 1, "queue_position": 1, "games_played": 0 },
@@ -174,7 +178,12 @@ Supabase RPCs used by the Expo app:
 - `remove_player_from_session`
 - `session_player_options`
 - `session_recommendation_snapshot`
+- `authorized_session_recommendation_snapshot` (FastAPI regeneration only)
 - `active_recommendations`
 - `active_matches`
 - `completed_matches`
 - `update_completed_match_result`
+
+Recommendation batches are stored with `replace_recommendation_batch_v2`,
+which rejects stale queue versions and returns an existing same-version batch
+idempotently.

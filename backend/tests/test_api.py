@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ import app.main as main_module
 from app.main import app
 from app.config import Settings
 from app.models import RecommendationSnapshot
+from app.supabase_gateway import StaleRecommendationVersionError
 
 
 client = TestClient(app)
@@ -20,16 +22,17 @@ def test_health_reports_service_metadata():
     assert "algorithm_version" in response.json()
 
 
-def test_preview_endpoint_returns_courts_plus_one_recommendations(monkeypatch):
+def test_preview_endpoint_returns_one_disjoint_match_per_court(monkeypatch):
     monkeypatch.setattr(recommendation_module, "_load_cp_model", lambda: None)
 
     response = client.post("/recommendations/preview", json=_snapshot(number_of_courts=2))
 
     assert response.status_code == 200
     body = response.json()
-    assert body["recommendation_count"] == 3
-    assert len(body["recommendations"]) == 3
+    assert body["recommendation_count"] == 2
+    assert len(body["recommendations"]) == 2
     assert body["recommendations"][0]["rank"] == 1
+    assert [item["court_number"] for item in body["recommendations"]] == [1, 2]
 
 
 def test_complete_match_requires_bearer_token():
@@ -99,7 +102,13 @@ def test_custom_match_completes_and_regenerates_recommendations(monkeypatch):
                 RecommendationSnapshot.model_validate(_snapshot(number_of_courts=2)),
             )
 
-        async def store_recommendations(self, response, generated_after_match_id):
+        async def store_recommendations(
+            self,
+            response,
+            expected_recommendation_version,
+            generated_after_match_id,
+        ):
+            assert expected_recommendation_version == 0
             stored_match_ids.append(generated_after_match_id)
             return response
 
@@ -126,6 +135,43 @@ def test_custom_match_completes_and_regenerates_recommendations(monkeypatch):
     assert response.status_code == 200
     assert response.json()["session_id"] == "sample-session"
     assert stored_match_ids == [UUID("00000000-0000-0000-0000-000000000999")]
+
+
+def test_generation_retries_once_with_latest_snapshot():
+    initial_data = _snapshot(number_of_courts=2)
+    initial_data["session"]["recommendation_version"] = 4
+    latest_data = _snapshot(number_of_courts=2)
+    latest_data["session"]["recommendation_version"] = 5
+    versions: list[int] = []
+
+    class RetryGateway:
+        async def store_recommendations(
+            self,
+            response,
+            expected_recommendation_version,
+            generated_after_match_id=None,
+        ):
+            versions.append(expected_recommendation_version)
+            if len(versions) == 1:
+                raise StaleRecommendationVersionError()
+            return response
+
+        async def regenerate_session(self, session_id, access_token):
+            assert session_id == "sample-session"
+            assert access_token == "user-token"
+            return RecommendationSnapshot.model_validate(latest_data)
+
+    result = asyncio.run(
+        main_module.generate_and_store_recommendations(
+            gateway=RetryGateway(),
+            snapshot=RecommendationSnapshot.model_validate(initial_data),
+            algorithm_version="test",
+            access_token="user-token",
+        )
+    )
+
+    assert versions == [4, 5]
+    assert result.recommendation_count == 2
 
 
 def test_qr_email_requires_bearer_token():
