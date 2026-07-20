@@ -188,6 +188,29 @@ def main() -> None:
         )
         _assert_recommendations(completed, expected_count=2)
 
+        form_snapshot = _rpc(
+            settings,
+            access_token,
+            "authorized_session_recommendation_snapshot",
+            {"p_session_id": session_id},
+        )
+        form_by_player_id = {
+            player["id"]: player["recent_form_adjustment"]
+            for player in form_snapshot["players"]
+        }
+        first_team_one_ids = {
+            player["player_id"]
+            for player in first_recommendation["players"]
+            if player["team_number"] == 1
+        }
+        first_team_two_ids = {
+            player["player_id"]
+            for player in first_recommendation["players"]
+            if player["team_number"] == 2
+        }
+        assert all(form_by_player_id[player_id] > 0 for player_id in first_team_one_ids)
+        assert all(form_by_player_id[player_id] < 0 for player_id in first_team_two_ids)
+
         history = _rpc(
             settings,
             access_token,

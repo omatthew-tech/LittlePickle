@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     api_title: str = "LittlePickle Match Flow API"
-    algorithm_version: str = "coordinated-fairness-v2"
+    algorithm_version: str = "result-aware-fairness-v3"
     supabase_url: AnyHttpUrl | None = Field(default=None, alias="SUPABASE_URL")
     supabase_anon_key: str | None = Field(default=None, alias="SUPABASE_ANON_KEY")
     supabase_service_role_key: str | None = Field(

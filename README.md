@@ -68,6 +68,7 @@ LittlePickle uses Supabase directly for ordinary app data and a small FastAPI se
 - FastAPI handles match completion, pass-player actions, accepting recommendations, and recommendation regeneration.
 - FastAPI returns one coordinated, disjoint recommendation per usable open court, capped by the available player count.
 - Players who sat out the previous opportunity are guaranteed a place in the next batch whenever court capacity allows; the remaining selection uses a 60% court-time fairness and 40% match-balance objective.
+- Match balance combines each player's stored rating with a bounded, recency-weighted signal from completed results in the current session, so repeated one-sided outcomes cause the next teams to rebalance without rewriting roster ratings.
 
 Auth behavior:
 

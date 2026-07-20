@@ -158,7 +158,10 @@ def _coordinated_candidates_with_cp_sat(
         str(player.id)
         for player in _required_waiting_players(players, capacity)
     }
-    skill_units = [round(player.skill * config.skill_scale) for player in players]
+    skill_units = [
+        round(_effective_skill(player) * config.skill_scale)
+        for player in players
+    ]
     skill_min = min(skill_units)
     skill_max = max(skill_units)
     skill_span = skill_max - skill_min
@@ -451,7 +454,7 @@ def _fallback_candidates(
         ),
     )
     selected = [*required, *optional[: capacity - len(required)]]
-    selected.sort(key=lambda player: (-player.skill, str(player.id)))
+    selected.sort(key=lambda player: (-_effective_skill(player), str(player.id)))
 
     court_players: list[list[PlayerSnapshot]] = [[] for _ in court_numbers]
     court_count = len(court_numbers)
@@ -519,8 +522,8 @@ def _batch_rank_key(
     )
 
     qualities = [candidate.option.quality_score for candidate in candidates]
-    skill_span = max(player.skill for player in players) - min(
-        player.skill for player in players
+    skill_span = max(_effective_skill(player) for player in players) - min(
+        _effective_skill(player) for player in players
     )
     balance = (
         (max(qualities) + sum(qualities) / len(qualities)) / (2 * skill_span)
@@ -641,7 +644,7 @@ def _score_pairing(
         team_one_average, team_two_average = team_two_average, team_one_average
 
     average_difference = abs(team_one_average - team_two_average)
-    skills = [player.skill for player in (*team_one, *team_two)]
+    skills = [_effective_skill(player) for player in (*team_one, *team_two)]
     spread = max(skills) - min(skills)
     quality_score = (
         config.team_balance_weight / 100.0 * average_difference
@@ -691,7 +694,11 @@ def _team_ids(team: tuple[PlayerSnapshot, PlayerSnapshot]) -> tuple[str, str]:
 
 
 def _average_skill(team: tuple[PlayerSnapshot, PlayerSnapshot]) -> float:
-    return (team[0].skill + team[1].skill) / 2.0
+    return (_effective_skill(team[0]) + _effective_skill(team[1])) / 2.0
+
+
+def _effective_skill(player: PlayerSnapshot) -> float:
+    return max(0.01, player.skill + player.recent_form_adjustment)
 
 
 def _win_probability(team_average_difference: float, scale: float) -> float:

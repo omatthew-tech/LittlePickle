@@ -187,3 +187,8 @@ Supabase RPCs used by the Expo app:
 Recommendation batches are stored with `replace_recommendation_batch_v2`,
 which rejects stale queue versions and returns an existing same-version batch
 idempotently.
+
+The snapshot also includes each player's bounded `recent_form_adjustment`,
+derived from the latest completed results in the current session. The optimizer
+uses rating plus recent form for match quality while keeping the stored rating
+unchanged in recommendation responses.
