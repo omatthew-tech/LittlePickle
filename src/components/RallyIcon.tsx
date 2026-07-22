@@ -93,10 +93,8 @@ function renderIcon(name: RallyIconName, color: string) {
     case "play":
       return (
         <>
-          <Rect x="5.5" y="2.8" width="8.2" height="9.4" rx="3" />
-          <Path d="m9.2 12 1 7.2" />
-          <Circle cx="18.2" cy="6.6" r="1.8" />
-          <Path d="M14.7 3.8c3.8-2 7.1.5 6.6 4.3" />
+          <Path d="M9.8 15.5c0-.6-.4-1-1.2-1.5l-.6-.4a4.3 4.3 0 0 1-2-3.7V5.2A3.2 3.2 0 0 1 9.2 2h5.6A3.2 3.2 0 0 1 18 5.2v4.7a4.3 4.3 0 0 1-2 3.7l-.6.4c-.8.5-1.2.9-1.2 1.5v5.7a1.4 1.4 0 0 1-1.4 1.4h-1.6a1.4 1.4 0 0 1-1.4-1.4v-5.7Z" />
+          <Path d="M10.1 16.2h3.8m-3.7.9 3.6 1.5m-3.6.4 3.6 1.5m-3.6.4 3 1.3" strokeWidth={1.3} />
         </>
       );
     case "profile":
