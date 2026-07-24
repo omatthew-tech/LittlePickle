@@ -119,6 +119,36 @@ export type LeaguePlayerNameMatch = {
   rating: number;
 };
 
+export type NearbyPlayer = {
+  display_name: string;
+  id: string;
+  profile_image_path: string | null;
+  rating: number;
+};
+
+export type ProfileOverview = {
+  nearby_players: NearbyPlayer[];
+  organization_id: string;
+  player: {
+    display_name: string;
+    id: string;
+    profile_image_path: string | null;
+    rating: number;
+  };
+  stats: {
+    hours_played: number;
+    match_count: number;
+    rank: number;
+  };
+};
+
+export type PlayerMatchHistoryResponse = {
+  matches: CompletedMatchesResponse["matches"];
+  organization_id: string;
+  player_id: string;
+  score_mode_enabled: boolean;
+};
+
 export type JoinLeagueQueueInput = {
   allowDuplicateName?: boolean;
   displayName: string;
@@ -337,6 +367,20 @@ export async function searchLeaguePlayerNames(organizationId: string, query: str
   return rpc<LeaguePlayerNameMatch[]>("league_player_name_matches", {
     p_organization_id: organizationId,
     p_query: query
+  });
+}
+
+export async function getPlayerProfileOverview(organizationId: string, playerId: string) {
+  return rpc<ProfileOverview>("player_profile_overview", {
+    p_organization_id: organizationId,
+    p_player_id: playerId
+  });
+}
+
+export async function getPlayerCompletedMatches(organizationId: string, playerId: string) {
+  return rpc<PlayerMatchHistoryResponse>("player_completed_matches", {
+    p_organization_id: organizationId,
+    p_player_id: playerId
   });
 }
 

@@ -59,6 +59,7 @@ import { isMatchFlowApiConfigured, sendLeagueQrEmail } from "../lib/matchFlowApi
 
 type HomeScreenProps = {
   activeQueueProfile: LeagueQueueProfile | null;
+  onCreationFlowActiveChanged: (active: boolean) => void;
   onQueueProfileChanged: (profile: LeagueQueueProfile | null) => void;
   onSessionSelected: (sessionId: string) => void;
   queueAutoOpenKey: number;
@@ -98,6 +99,7 @@ const initialDraft: LeagueDraft = {
 
 export function HomeScreen({
   activeQueueProfile,
+  onCreationFlowActiveChanged,
   onQueueProfileChanged,
   onSessionSelected,
   queueAutoOpenKey
@@ -178,6 +180,17 @@ export function HomeScreen({
   useEffect(() => {
     void loadHomeData();
   }, [loadHomeData]);
+
+  useEffect(() => {
+    onCreationFlowActiveChanged(createStep !== "home");
+  }, [createStep, onCreationFlowActiveChanged]);
+
+  useEffect(
+    () => () => {
+      onCreationFlowActiveChanged(false);
+    },
+    [onCreationFlowActiveChanged]
+  );
 
   useEffect(() => {
     if (lastQueueAutoOpenKey.current === queueAutoOpenKey) {
@@ -746,6 +759,11 @@ export function HomeScreen({
     setCreateStep("intro");
   }
 
+  function closeCreateLeague() {
+    setErrorMessage(null);
+    setCreateStep("home");
+  }
+
   function updateDraft(field: keyof LeagueDraft, value: string | boolean) {
     setDraft((previousDraft) => ({
       ...previousDraft,
@@ -1013,10 +1031,12 @@ export function HomeScreen({
   }
 
   function renderHome() {
+    const homeHeading = organizations.length > 0 ? "Ready to play?" : "Find your league";
+
     return (
       <View style={styles.homeContent}>
-        <Text accessibilityRole="header" style={styles.brand}>
-          LittlePickle
+        <Text accessibilityRole="header" style={styles.homeTitle}>
+          {homeHeading}
         </Text>
         <View style={styles.entryStack}>
           <QRAction disabled={loading} label="Scan league QR" onPress={() => void beginScanner()} />
@@ -1225,14 +1245,18 @@ export function HomeScreen({
       case "intro":
         return (
           <View style={styles.flow}>
+            <View style={styles.creationCloseRow}>
+              <ActionButton label="Close" onPress={closeCreateLeague} variant="text" />
+            </View>
             <Text accessibilityRole="header" style={styles.pageTitle}>Create a league</Text>
             <Text style={styles.bodyText}>
               A league is a fun way to keep track of score at your local pickleball courts. You will get recommended team match ups based on skill level. It also keeps track of who sits out, so everyone gets the same amount of court time. Plus, as an admin, you will get a customizable community page so everyone can view announcements, upcoming events, and more.
             </Text>
-            <View style={styles.bottomActions}>
-              <ActionButton label="Go back" onPress={() => setCreateStep("home")} variant="text" />
-              <ActionButton label="Create league" onPress={() => setCreateStep("name")} />
-            </View>
+            <ActionButton
+              label="Create league"
+              onPress={() => setCreateStep("name")}
+              style={styles.creationPrimaryButton}
+            />
           </View>
         );
       case "name":
@@ -1240,6 +1264,7 @@ export function HomeScreen({
           <FormStepLayout
             currentStep={1}
             onBack={() => setCreateStep("intro")}
+            onClose={closeCreateLeague}
             onPrimaryPress={() => setCreateStep("courts")}
             primaryDisabled={!draft.name.trim()}
             title="What's the name of your league?"
@@ -1261,6 +1286,7 @@ export function HomeScreen({
           <FormStepLayout
             currentStep={2}
             onBack={() => setCreateStep("name")}
+            onClose={closeCreateLeague}
             onPrimaryPress={() => setCreateStep("location")}
             primaryDisabled={!validCourtCount(draft.courtCount)}
             title="How many pickleball courts are usually available?"
@@ -1283,6 +1309,7 @@ export function HomeScreen({
           <FormStepLayout
             currentStep={3}
             onBack={() => setCreateStep("courts")}
+            onClose={closeCreateLeague}
             onPrimaryPress={() => setCreateStep("verify")}
             primaryDisabled={!draft.locationText.trim()}
             title="Where are your pickleball courts located?"
@@ -1304,6 +1331,7 @@ export function HomeScreen({
           <FormStepLayout
             currentStep={4}
             onBack={() => setCreateStep("location")}
+            onClose={closeCreateLeague}
             onPrimaryPress={() => void verifyAndCreateLeague()}
             primaryDisabled={loading || (!session?.user.email && (!draft.email.trim() || !draft.otp.trim()))}
             primaryLabel="Create league"
@@ -1363,6 +1391,9 @@ export function HomeScreen({
 
     return (
       <View style={styles.flow}>
+        <View style={styles.creationCloseRow}>
+          <ActionButton label="Close" onPress={closeCreateLeague} variant="text" />
+        </View>
         <Text accessibilityRole="header" style={styles.pageTitle}>Congratulations!</Text>
         <Text style={styles.bodyText}>{createdLeague.name} was successfully created.</Text>
         <View style={styles.qrPanel}>
@@ -1443,7 +1474,10 @@ export function HomeScreen({
         contentContainerStyle={[
           styles.content,
           {
-            paddingBottom: theme.size.navigationBottomHeight + insets.bottom + theme.layout.sectionGap,
+            paddingBottom:
+              createStep === "home"
+                ? theme.size.navigationBottomHeight + insets.bottom + theme.layout.sectionGap
+                : insets.bottom + theme.layout.sectionGap,
             paddingTop: insets.top + (createStep === "home" ? theme.space[32] : theme.space[20])
           }
         ]}
@@ -1609,7 +1643,7 @@ const styles = StyleSheet.create({
     gap: theme.layout.inlineDefault,
     justifyContent: "space-between"
   },
-  brand: {
+  homeTitle: {
     ...theme.type.headingBrand,
     color: theme.color.text.primary
   },
@@ -1656,6 +1690,15 @@ const styles = StyleSheet.create({
     minWidth: theme.size.targetMinimum,
     paddingHorizontal: 0,
     paddingVertical: theme.space[8]
+  },
+  creationCloseRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginRight: -theme.space[12]
+  },
+  creationPrimaryButton: {
+    alignSelf: "stretch"
   },
   emptyText: {
     ...theme.type.bodySecondary,

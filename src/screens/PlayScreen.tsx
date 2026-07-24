@@ -66,6 +66,8 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
     () => historyEditMatch ? activeMatchTeams(historyEditMatch, displayNamesByPlayerId) : null,
     [displayNamesByPlayerId, historyEditMatch]
   );
+  const showQuickActions =
+    recommendations.length > 0 || activeMatches.length > 0 || completedMatches.length > 0;
 
   useEffect(() => {
     if (sessionEnded) {
@@ -200,7 +202,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
       <Text accessibilityRole="header" style={styles.pageTitle}>
         Recommended matches
       </Text>
-      {recommendations.length > 0 ? (
+      {showQuickActions ? (
         <View accessibilityLabel="Play actions" style={styles.quickActions}>
           <ActionButton
             accessibilityLabel="Create a custom match"

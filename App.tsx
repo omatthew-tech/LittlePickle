@@ -35,6 +35,7 @@ function AppShell() {
   const [activeDestination, setActiveDestination] = useState<Destination>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(process.env.EXPO_PUBLIC_DEFAULT_SESSION_ID ?? null);
   const [activeQueueProfile, setActiveQueueProfile] = useState<LeagueQueueProfile | null>(null);
+  const [creationFlowActive, setCreationFlowActive] = useState(false);
   const [homeVisitKey, setHomeVisitKey] = useState(0);
 
   const handleDestinationChanged = useCallback((destination: Destination) => {
@@ -77,6 +78,7 @@ function AppShell() {
         {activeDestination === "home" ? (
           <HomeScreen
             activeQueueProfile={activeQueueProfile}
+            onCreationFlowActiveChanged={setCreationFlowActive}
             onQueueProfileChanged={setActiveQueueProfile}
             onSessionSelected={(sessionId) => {
               setActiveSessionId(sessionId);
@@ -94,7 +96,9 @@ function AppShell() {
         {activeDestination === "profile" ? (
           <ProfileScreen onActiveProfileChanged={handleActivePlayerProfileChanged} />
         ) : null}
-        <BottomNavigation activeDestination={activeDestination} onDestinationChanged={handleDestinationChanged} />
+        {!creationFlowActive ? (
+          <BottomNavigation activeDestination={activeDestination} onDestinationChanged={handleDestinationChanged} />
+        ) : null}
       </View>
     </SafeAreaProvider>
   );

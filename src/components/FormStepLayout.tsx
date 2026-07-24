@@ -8,6 +8,7 @@ type FormStepLayoutProps = {
   children: ReactNode;
   currentStep: number;
   onBack: () => void;
+  onClose: () => void;
   onPrimaryPress: () => void;
   primaryDisabled?: boolean;
   primaryLabel?: string;
@@ -19,6 +20,7 @@ export function FormStepLayout({
   children,
   currentStep,
   onBack,
+  onClose,
   onPrimaryPress,
   primaryDisabled = false,
   primaryLabel = "Next",
@@ -28,7 +30,7 @@ export function FormStepLayout({
   const insets = useSafeAreaInsets();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const progressWidth = `${Math.max(0, Math.min(100, (currentStep / totalSteps) * 100))}%` as DimensionValue;
-  const reservedBottomSpace = theme.size.navigationBottomHeight + insets.bottom + theme.layout.sectionGap;
+  const reservedBottomSpace = insets.bottom + theme.layout.sectionGap;
   const footerLift = Math.max(0, keyboardHeight + theme.space[12] - reservedBottomSpace);
 
   useEffect(() => {
@@ -50,7 +52,10 @@ export function FormStepLayout({
   return (
     <View style={styles.root}>
       <View>
-        <ActionButton label="Go back" onPress={onBack} style={styles.backButton} variant="text" />
+        <View style={styles.navigationRow}>
+          <ActionButton label="Back" onPress={onBack} style={styles.backButton} variant="text" />
+          <ActionButton label="Close" onPress={onClose} style={styles.closeButton} variant="text" />
+        </View>
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: progressWidth }]} />
         </View>
@@ -76,8 +81,10 @@ export function FormStepLayout({
 
 const styles = StyleSheet.create({
   backButton: {
-    alignSelf: "flex-start",
     marginLeft: -theme.space[12]
+  },
+  closeButton: {
+    marginRight: -theme.space[12]
   },
   fields: {
     gap: theme.layout.stackDefault,
@@ -93,6 +100,11 @@ const styles = StyleSheet.create({
   },
   formContent: {
     marginTop: theme.space[64]
+  },
+  navigationRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
   },
   primaryButton: {
     alignSelf: "stretch"
