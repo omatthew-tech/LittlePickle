@@ -24,6 +24,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            /website/
+          sparse-checkout-cone-mode: false
 
       - name: Install, build, and upload Astro site
         uses: withastro/action@v6
