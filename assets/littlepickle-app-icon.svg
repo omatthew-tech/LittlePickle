@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">LittlePickle app icon — Open Court Rally</title>
+  <desc id="desc">A pale green pickleball completes an open warm-white rally loop on a royal blue field.</desc>
+  <rect width="1024" height="1024" fill="#4B63C6"/>
+  <path
+    d="M 770 720
+       C 646 847 397 833 253 673
+       C 111 516 177 293 349 205
+       C 521 116 731 177 816 341
+       C 853 413 852 495 814 575"
+    fill="none"
+    stroke="#F6F2E8"
+    stroke-width="124"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="794" cy="651" r="146" fill="#CBDDA4"/>
+  <g fill="#4B63C6">
+    <circle cx="744" cy="606" r="21"/>
+    <circle cx="812" cy="588" r="21"/>
+    <circle cx="852" cy="641" r="21"/>
+    <circle cx="748" cy="681" r="21"/>
+    <circle cx="815" cy="676" r="21"/>
+    <circle cx="794" cy="738" r="21"/>
+  </g>
+</svg>

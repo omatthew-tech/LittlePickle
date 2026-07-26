@@ -64,6 +64,11 @@ function AppShell() {
     });
   }, []);
 
+  const handleActivePlayerDeactivated = useCallback(() => {
+    setActiveSessionId(null);
+    setActiveQueueProfile(null);
+  }, []);
+
   const handleSessionEnded = useCallback(() => {
     setActiveSessionId(null);
     setActiveQueueProfile(null);
@@ -94,7 +99,10 @@ function AppShell() {
           />
         ) : null}
         {activeDestination === "profile" ? (
-          <ProfileScreen onActiveProfileChanged={handleActivePlayerProfileChanged} />
+          <ProfileScreen
+            onActiveProfileChanged={handleActivePlayerProfileChanged}
+            onActiveProfileDeactivated={handleActivePlayerDeactivated}
+          />
         ) : null}
         {!creationFlowActive ? (
           <BottomNavigation activeDestination={activeDestination} onDestinationChanged={handleDestinationChanged} />

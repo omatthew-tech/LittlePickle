@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
@@ -20,6 +22,7 @@ from .models import (
 )
 from .recommendations import build_recommendation_response
 from .email_delivery import send_league_qr_email
+from .player_data_retention import run_player_data_retention_loop
 from .supabase_gateway import (
     StaleRecommendationVersionError,
     SupabaseGateway,
@@ -70,7 +73,25 @@ async def generate_and_store_recommendations(
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.api_title)
+
+    @asynccontextmanager
+    async def lifespan(current_app: FastAPI):
+        retention_task = None
+
+        if settings.supabase_configured:
+            retention_task = asyncio.create_task(
+                run_player_data_retention_loop(settings)
+            )
+            current_app.state.player_data_retention_task = retention_task
+
+        yield
+
+        if retention_task is not None:
+            retention_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await retention_task
+
+    app = FastAPI(title=settings.api_title, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.allowed_origins,

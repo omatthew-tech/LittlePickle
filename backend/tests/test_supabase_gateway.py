@@ -257,6 +257,34 @@ def test_regeneration_uses_membership_protected_snapshot_rpc():
     ]
 
 
+def test_player_data_retention_purges_records_and_storage_images():
+    gateway = RetentionRecordingGateway()
+
+    result = asyncio.run(gateway.purge_deactivated_players())
+
+    assert result == {
+        "purged_players": 2,
+        "deleted_profile_images": 2,
+    }
+    assert gateway.deleted_image_paths == [
+        "user-one/avatar.jpg",
+        "user-two/avatar.png",
+    ]
+    assert gateway.service_calls == [
+        ("purge_due_deactivated_players", {}),
+        ("pending_player_profile_image_deletions", {}),
+        (
+            "complete_player_profile_image_deletions",
+            {
+                "p_profile_image_paths": [
+                    "user-one/avatar.jpg",
+                    "user-two/avatar.png",
+                ]
+            },
+        ),
+    ]
+
+
 class RecordingGateway(SupabaseGateway):
     def __init__(self) -> None:
         super().__init__(
@@ -294,6 +322,42 @@ class RecordingGateway(SupabaseGateway):
             }
 
         return _snapshot(number_of_courts=2)
+
+
+class RetentionRecordingGateway(SupabaseGateway):
+    def __init__(self) -> None:
+        super().__init__(
+            Settings(
+                SUPABASE_URL="https://example.supabase.co",
+                SUPABASE_ANON_KEY="anon",
+                SUPABASE_SERVICE_ROLE_KEY="service",
+            )
+        )
+        self.deleted_image_paths: list[str] = []
+        self.service_calls: list[tuple[str, dict]] = []
+
+    async def _rpc_as_service(self, function_name: str, payload: dict):
+        self.service_calls.append((function_name, payload))
+
+        if function_name == "purge_due_deactivated_players":
+            return 2
+
+        if function_name == "pending_player_profile_image_deletions":
+            return [
+                {
+                    "player_id": "player-one",
+                    "profile_image_path": "user-one/avatar.jpg",
+                },
+                {
+                    "player_id": "player-two",
+                    "profile_image_path": "user-two/avatar.png",
+                },
+            ]
+
+        return 2
+
+    async def _delete_profile_images(self, image_paths: list[str]) -> None:
+        self.deleted_image_paths.extend(image_paths)
 
 
 def _recommendation_response():

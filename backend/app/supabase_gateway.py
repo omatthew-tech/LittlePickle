@@ -140,6 +140,35 @@ class SupabaseGateway:
             detail="Only league admins can send this QR email.",
         )
 
+    async def purge_deactivated_players(self) -> dict[str, int]:
+        purged_count = await self._rpc_as_service(
+            "purge_due_deactivated_players",
+            {},
+        )
+        pending_images = await self._rpc_as_service(
+            "pending_player_profile_image_deletions",
+            {},
+        )
+        image_paths = [
+            item["profile_image_path"]
+            for item in pending_images
+            if isinstance(item, dict)
+            and isinstance(item.get("profile_image_path"), str)
+            and item["profile_image_path"]
+        ] if isinstance(pending_images, list) else []
+
+        if image_paths:
+            await self._delete_profile_images(image_paths)
+            await self._rpc_as_service(
+                "complete_player_profile_image_deletions",
+                {"p_profile_image_paths": image_paths},
+            )
+
+        return {
+            "purged_players": int(purged_count or 0),
+            "deleted_profile_images": len(image_paths),
+        }
+
     async def store_recommendations(
         self,
         response: RecommendationResponse,
@@ -241,6 +270,35 @@ class SupabaseGateway:
             )
 
         return _safe_json(response)
+
+    async def _delete_profile_images(self, image_paths: list[str]) -> None:
+        self._require_supabase()
+        service_key = self.settings.supabase_service_role_key or ""
+        supabase_url = str(self.settings.supabase_url).rstrip("/")
+        url = f"{supabase_url}/storage/v1/object/profile-pictures"
+        headers = {
+            "apikey": service_key,
+            "authorization": f"Bearer {service_key}",
+            "content-type": "application/json",
+        }
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.request(
+                "DELETE",
+                url,
+                headers=headers,
+                json={"prefixes": image_paths},
+            )
+
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=_map_supabase_status(response.status_code),
+                detail={
+                    "supabase_status": response.status_code,
+                    "operation": "delete deactivated player profile images",
+                    "error": _safe_json(response),
+                },
+            )
 
     def _require_supabase(self) -> None:
         if not self.settings.supabase_configured:

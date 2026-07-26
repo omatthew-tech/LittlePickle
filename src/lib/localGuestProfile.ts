@@ -55,6 +55,10 @@ export async function saveActiveLocalPlayerProfile(profile: SavedPlayerProfileIn
   return nextProfile;
 }
 
+export async function clearActiveLocalPlayerProfile() {
+  await AsyncStorage.removeItem(activePlayerProfileKey);
+}
+
 export async function getLocalPlayedLeagues() {
   await migrateLegacyGuestProfiles();
 

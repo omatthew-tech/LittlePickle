@@ -25,6 +25,7 @@ import { SearchField } from "../components/SearchField";
 import { theme } from "../design/theme";
 import { useAuth } from "../lib/auth";
 import {
+  deactivatePlayer,
   getPlayerCompletedMatches,
   getPlayerProfileOverview,
   searchLeaguePlayerNames,
@@ -37,6 +38,7 @@ import {
   type ProfileOverview
 } from "../lib/littlePickleData";
 import {
+  clearActiveLocalPlayerProfile,
   getActiveLocalPlayerProfile,
   saveActiveLocalPlayerProfile,
   type LocalPlayerProfile
@@ -49,9 +51,13 @@ type SupportedProfileImageType = "image/jpeg" | "image/png" | "image/webp";
 
 type ProfileScreenProps = {
   onActiveProfileChanged?: (profile: LocalPlayerProfile) => void;
+  onActiveProfileDeactivated?: () => void;
 };
 
-export function ProfileScreen({ onActiveProfileChanged }: ProfileScreenProps) {
+export function ProfileScreen({
+  onActiveProfileChanged,
+  onActiveProfileDeactivated
+}: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
   const { configured, ensureAnonymousSession } = useAuth();
   const [activeProfile, setActiveProfile] = useState<LocalPlayerProfile | null>(null);
@@ -184,7 +190,14 @@ export function ProfileScreen({ onActiveProfileChanged }: ProfileScreenProps) {
 
       return nextOverview;
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not load profile details.");
+      const message = error instanceof Error ? error.message : "Could not load profile details.";
+
+      if (isUnavailablePlayerMessage(message)) {
+        await clearActiveProfile();
+        return null;
+      }
+
+      setErrorMessage(message);
       return null;
     } finally {
       setDashboardLoading(false);
@@ -465,6 +478,72 @@ export function ProfileScreen({ onActiveProfileChanged }: ProfileScreenProps) {
     }
   }
 
+  function confirmDeactivatePlayer() {
+    if (!activeProfile || profileBusy) {
+      return;
+    }
+
+    Alert.alert(
+      "Delete profile?",
+      "This account will be immediately unavailable and will no longer be visible in the app. " +
+        "The player's information will be permanently deleted in 30 days unless support@littlepickle.com " +
+        "or a league admin is notified.",
+      [
+        {
+          style: "cancel",
+          text: "Cancel"
+        },
+        {
+          onPress: () => void handleDeactivatePlayer(),
+          style: "destructive",
+          text: "Delete profile"
+        }
+      ]
+    );
+  }
+
+  async function handleDeactivatePlayer() {
+    if (!activeProfile) {
+      return;
+    }
+
+    if (!configured) {
+      setErrorMessage("Supabase is not configured.");
+      return;
+    }
+
+    setProfileBusy(true);
+    setErrorMessage(null);
+
+    try {
+      await ensureAnonymousSession();
+      await deactivatePlayer(activeProfile.playerId);
+      await clearActiveProfile();
+      Alert.alert(
+        "Player deactivated",
+        "The player is no longer available. Contact support@littlepickle.com or a league admin within 30 days to restore it."
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not deactivate the player.";
+      setErrorMessage(message);
+      Alert.alert("Player not deactivated", message);
+    } finally {
+      setProfileBusy(false);
+    }
+  }
+
+  async function clearActiveProfile() {
+    await clearActiveLocalPlayerProfile();
+    setActiveProfile(null);
+    setHistoryEditMatchId(null);
+    setMatchHistory(null);
+    setMatchHistoryOpen(false);
+    setNameDraft("");
+    setOverview(null);
+    setSwitcherOpen(false);
+    onActiveProfileDeactivated?.();
+  }
+
   return (
     <>
       <ScrollView
@@ -591,6 +670,23 @@ export function ProfileScreen({ onActiveProfileChanged }: ProfileScreenProps) {
             ) : nearbyPlayers.length > 0 ? (
               <NearbyPlayers players={nearbyPlayers} />
             ) : null}
+
+            <View style={styles.accountSection}>
+              <Pressable
+                accessibilityLabel="Delete profile"
+                accessibilityRole="button"
+                disabled={profileBusy}
+                onPress={confirmDeactivatePlayer}
+                style={({ pressed }) => [
+                  styles.deleteProfileButton,
+                  pressed ? styles.deleteProfileButtonPressed : null
+                ]}
+              >
+                <Text style={[styles.deleteProfileText, profileBusy ? styles.deleteProfileTextDisabled : null]}>
+                  {profileBusy ? "Deleting..." : "Delete profile"}
+                </Text>
+              </Pressable>
+            </View>
           </>
         ) : null}
 
@@ -887,11 +983,19 @@ function normalizeDisplayName(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function isUnavailablePlayerMessage(message: string) {
+  const normalizedMessage = message.toLowerCase();
+  return normalizedMessage.includes("active player") && normalizedMessage.includes("not found");
+}
+
 const profileAvatarSize = 96;
 const nearbyAvatarSize = 80;
 const cameraBadgeSize = 40;
 
 const styles = StyleSheet.create({
+  accountSection: {
+    marginTop: theme.space[40]
+  },
   avatarButton: {
     height: profileAvatarSize + theme.space[8],
     width: profileAvatarSize + theme.space[8]
@@ -924,6 +1028,24 @@ const styles = StyleSheet.create({
     right: theme.space[0],
     width: cameraBadgeSize,
     ...theme.shadow.card
+  },
+  deleteProfileButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    justifyContent: "center",
+    marginLeft: -theme.space[12],
+    minHeight: theme.size.targetMinimum,
+    paddingHorizontal: theme.space[12]
+  },
+  deleteProfileButtonPressed: {
+    opacity: 0.55
+  },
+  deleteProfileText: {
+    ...theme.type.bodySecondary,
+    color: theme.color.text.secondary
+  },
+  deleteProfileTextDisabled: {
+    opacity: 0.55
   },
   chevron: {
     transform: [{ rotate: "180deg" }]

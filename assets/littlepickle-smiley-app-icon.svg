@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">LittlePickle pickleball smile app icon</title>
+  <desc id="desc">A warm white smiley face on a royal blue field, with two green pickleballs for eyes and seven smaller pickleballs forming the smile.</desc>
+
+  <defs>
+    <g id="eye-ball">
+      <circle r="105" fill="#CBDDA4"/>
+      <g fill="#4B63C6">
+        <circle r="14"/>
+        <ellipse cx="-30" cy="-57" rx="16" ry="9" transform="rotate(-10 -30 -57)"/>
+        <ellipse cx="51" cy="-38" rx="10" ry="17" transform="rotate(-40 51 -38)"/>
+        <ellipse cx="59" cy="28" rx="10" ry="17" transform="rotate(24 59 28)"/>
+        <ellipse cx="15" cy="61" rx="17" ry="9" transform="rotate(5 15 61)"/>
+        <ellipse cx="-53" cy="34" rx="10" ry="17" transform="rotate(-24 -53 34)"/>
+        <ellipse cx="-60" cy="-21" rx="10" ry="17" transform="rotate(24 -60 -21)"/>
+      </g>
+    </g>
+
+    <g id="smile-ball">
+      <circle r="44" fill="#CBDDA4"/>
+      <g fill="#4B63C6">
+        <circle r="6"/>
+        <ellipse cy="-27" rx="8" ry="4.5"/>
+        <ellipse cx="23" cy="-14" rx="4.5" ry="8" transform="rotate(-25 23 -14)"/>
+        <ellipse cx="22" cy="18" rx="4.5" ry="8" transform="rotate(25 22 18)"/>
+        <ellipse cy="28" rx="8" ry="4.5"/>
+        <ellipse cx="-22" cy="18" rx="4.5" ry="8" transform="rotate(-25 -22 18)"/>
+        <ellipse cx="-23" cy="-14" rx="4.5" ry="8" transform="rotate(25 -23 -14)"/>
+      </g>
+    </g>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#4B63C6"/>
+  <circle cx="512" cy="512" r="408" fill="#F6F2E8"/>
+
+  <use href="#eye-ball" transform="translate(352 384)"/>
+  <use href="#eye-ball" transform="translate(672 384) scale(-1 1)"/>
+
+  <use href="#smile-ball" transform="translate(292 650) rotate(-18)"/>
+  <use href="#smile-ball" transform="translate(362 706) rotate(-12)"/>
+  <use href="#smile-ball" transform="translate(436 744) rotate(-6)"/>
+  <use href="#smile-ball" transform="translate(512 758)"/>
+  <use href="#smile-ball" transform="translate(588 744) rotate(6)"/>
+  <use href="#smile-ball" transform="translate(662 706) rotate(12)"/>
+  <use href="#smile-ball" transform="translate(732 650) rotate(18)"/>
+</svg>

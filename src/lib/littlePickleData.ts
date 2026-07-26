@@ -81,8 +81,11 @@ export type OrganizationMemberSummary = {
 export type OrganizationPlayerSummary = {
   active: boolean;
   created_at: string;
+  deactivated_at: string | null;
+  deletion_scheduled_at: string | null;
   display_name: string;
   id: string;
+  personal_data_deleted_at: string | null;
   profile_image_path: string | null;
   rating: number;
 };
@@ -147,6 +150,12 @@ export type PlayerMatchHistoryResponse = {
   organization_id: string;
   player_id: string;
   score_mode_enabled: boolean;
+};
+
+export type DeactivatePlayerResult = {
+  deactivated_at: string;
+  deletion_scheduled_at: string;
+  player_id: string;
 };
 
 export type JoinLeagueQueueInput = {
@@ -280,6 +289,12 @@ export async function updateOrganizationPlayer(input: UpdateOrganizationPlayerIn
     p_display_name: input.displayName,
     p_rating: input.rating,
     p_active: input.active
+  });
+}
+
+export async function deactivatePlayer(playerId: string) {
+  return rpc<DeactivatePlayerResult>("deactivate_player", {
+    p_player_id: playerId
   });
 }
 
@@ -453,6 +468,10 @@ function friendlyRpcMessage(functionName: string, error: RpcError) {
 
   if (searchable.includes("score mode changed") || error.code === "40001") {
     return "League score mode changed. Reopen the result form and try again.";
+  }
+
+  if (functionName === "deactivate_player" && searchable.includes("player is in an active match")) {
+    return "Finish the player's active match before deactivating them.";
   }
 
   return [message, details, hint].filter(Boolean).join(" ") || `Could not call ${functionName}.`;

@@ -2,6 +2,7 @@
   "expo": {
     "name": "LittlePickle",
     "slug": "littlepickle",
+    "icon": "./assets/littlepickle-app-icon.png",
     "version": "0.1.0",
     "orientation": "portrait",
     "platforms": ["ios", "android"],

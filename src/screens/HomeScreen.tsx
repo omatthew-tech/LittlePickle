@@ -38,6 +38,7 @@ import {
   searchLeaguePlayerNames,
   searchOrganizations,
   setOrganizationScoreMode,
+  updateOrganizationPlayer,
   type LeagueCodeResult,
   type LeaguePlayerNameMatch,
   type OrganizationOpenSessionSummary,
@@ -1030,6 +1031,33 @@ export function HomeScreen({
     }
   }
 
+  async function reactivateOrganizationPlayer(
+    organization: OrganizationSummary,
+    player: OrganizationPlayerSummary
+  ) {
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const players = await updateOrganizationPlayer({
+        active: true,
+        displayName: player.display_name,
+        playerId: player.id,
+        rating: player.rating
+      });
+      setOrganizationPlayers((previousPlayers) => ({
+        ...previousPlayers,
+        [organization.id]: players
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not reactivate the player.";
+      setErrorMessage(message);
+      Alert.alert("Player not reactivated", message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function renderHome() {
     const homeHeading = organizations.length > 0 ? "Ready to play?" : "Find your league";
 
@@ -1226,8 +1254,22 @@ export function HomeScreen({
                     <View key={player.id} style={styles.playerSummaryRow}>
                       <View style={styles.leagueText}>
                         <Text style={styles.memberName}>{player.display_name}</Text>
-                        <Text style={styles.leagueMeta}>{player.active ? "Active" : "Inactive"}</Text>
+                        <Text style={styles.leagueMeta}>
+                          {player.active
+                            ? "Active"
+                            : player.deletion_scheduled_at
+                              ? `Inactive · deletion ${formatShortDate(player.deletion_scheduled_at)}`
+                              : "Inactive"}
+                        </Text>
                       </View>
+                      {!player.active && !player.personal_data_deleted_at ? (
+                        <ActionButton
+                          disabled={loading}
+                          label="Reactivate"
+                          onPress={() => void reactivateOrganizationPlayer(organization, player)}
+                          variant="text"
+                        />
+                      ) : null}
                     </View>
                   ))}
                   {!loading && players.length === 0 ? <Text style={styles.emptyText}>No players yet.</Text> : null}
@@ -1596,6 +1638,13 @@ function slugify(value: string) {
 function activePlayersText(activePlayerCount: number) {
   const playerLabel = activePlayerCount === 1 ? "player" : "players";
   return `${activePlayerCount} ${playerLabel} active`;
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short"
+  }).format(new Date(value));
 }
 
 function initialsFor(name: string) {

@@ -132,6 +132,7 @@ Live Play screen bridge:
 - Adding/removing a current player or changing a rating invalidates the old batch and refreshes recommendations.
 - A play session closes automatically when its last active player leaves the queue, invalidates its recommendations, and returns the app from Play to Home.
 - Supabase Cron closes every remaining open session daily at 4:00 AM America/New_York; any match still active at that cutoff is cancelled.
+- Deactivated players disappear from active app views immediately and can be restored by a league admin for 30 days. Supabase Cron then anonymizes their profile and rating data, while the FastAPI service removes queued profile images from Supabase Storage.
 - The camera QR scanner resolves LittlePickle league QR values and opens the join queue.
 
 The Supabase migrations live at:
