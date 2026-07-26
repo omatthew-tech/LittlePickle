@@ -1,6 +1,6 @@
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  site: "https://littlepickle.pages.dev",
+  site: process.env.SITE_URL ?? "https://joinlittlepickle.com",
   output: "static"
 });

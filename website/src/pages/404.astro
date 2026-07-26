@@ -1,0 +1,90 @@
+---
+import "@fontsource/cabin/latin-400.css";
+import "@fontsource/cabin/latin-600.css";
+import "@fontsource/cabin/latin-700.css";
+import "../styles/global.css";
+
+const base = import.meta.env.BASE_URL.endsWith("/") ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
+const iconUrl = `${base}littlepickle-app-icon.png`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#F6F2E8" />
+    <link rel="icon" type="image/png" href={iconUrl} />
+    <title>Page not found — LittlePickle</title>
+  </head>
+  <body>
+    <main class="site-shell">
+      <section class="not-found" aria-labelledby="not-found-title">
+        <img class="not-found__icon" src={iconUrl} alt="" width="1254" height="1254" />
+        <p class="not-found__eyebrow">404</p>
+        <h1 id="not-found-title">That ball went out.</h1>
+        <p class="not-found__copy">The page you’re looking for isn’t on this court.</p>
+        <a class="not-found__link" href={base}>Back to LittlePickle</a>
+      </section>
+    </main>
+  </body>
+</html>
+
+<style>
+  .not-found {
+    width: min(100%, 560px);
+    padding: var(--lp-space-40, 40px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--lp-space-16);
+    border: var(--lp-border-interactive) solid var(--lp-border-control);
+    border-radius: var(--lp-radius-card);
+    background: var(--lp-surface-card);
+    text-align: center;
+  }
+
+  .not-found__icon {
+    width: 88px;
+    height: 88px;
+    border-radius: var(--lp-radius-card);
+  }
+
+  .not-found__eyebrow,
+  .not-found__copy {
+    margin: 0;
+  }
+
+  .not-found__eyebrow {
+    color: var(--lp-action-primary);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .not-found__copy {
+    color: var(--lp-text-secondary);
+  }
+
+  .not-found__link {
+    margin-top: var(--lp-space-6);
+    padding: var(--lp-space-12) var(--lp-space-20);
+    border-radius: var(--lp-radius-control);
+    background: var(--lp-action-primary);
+    color: var(--lp-surface-card);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .not-found__link:focus-visible {
+    outline: 3px solid var(--lp-color-pickle-leaf);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 767px) {
+    .not-found {
+      padding: var(--lp-space-20);
+    }
+  }
+</style>
