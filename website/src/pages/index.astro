@@ -17,36 +17,32 @@ interface BallSpec {
   delay: number;
   duration: number;
   holes: number;
-  hideCompact?: boolean;
-  hideShort?: boolean;
 }
 
-const balls: BallSpec[] = [
-  { id: 1, color: "chalk", size: 112, left: -3, top: -4, rotation: -18, startRotation: -92, delay: 0.04, duration: 0.96, holes: 6 },
-  { id: 2, color: "royal", size: 92, left: 10, top: -1, rotation: 14, startRotation: 88, delay: 0.12, duration: 0.9, holes: 5, hideCompact: true },
-  { id: 3, color: "chalk", size: 118, left: 21, top: -5, rotation: 28, startRotation: -78, delay: 0.2, duration: 1.02, holes: 6 },
-  { id: 4, color: "royal", size: 88, left: 35, top: 1, rotation: -10, startRotation: 100, delay: 0.28, duration: 0.88, holes: 5, hideCompact: true, hideShort: true },
-  { id: 5, color: "chalk", size: 104, left: 48, top: -3, rotation: 20, startRotation: -110, delay: 0.36, duration: 1.04, holes: 6 },
-  { id: 6, color: "leaf", size: 96, left: 62, top: 0, rotation: -24, startRotation: 74, delay: 0.44, duration: 0.94, holes: 5, hideCompact: true },
-  { id: 7, color: "royal", size: 114, left: 76, top: -4, rotation: 12, startRotation: 120, delay: 0.52, duration: 1.08, holes: 6 },
-  { id: 8, color: "chalk", size: 100, left: 92, top: -1, rotation: -20, startRotation: -84, delay: 0.6, duration: 0.98, holes: 5 },
-  { id: 9, color: "royal", size: 110, left: -4, top: 18, rotation: 24, startRotation: -104, delay: 0.1, duration: 1.08, holes: 6 },
-  { id: 10, color: "chalk", size: 90, left: 8, top: 35, rotation: -12, startRotation: 82, delay: 0.18, duration: 0.92, holes: 5, hideCompact: true, hideShort: true },
-  { id: 11, color: "royal", size: 118, left: -5, top: 50, rotation: -28, startRotation: 114, delay: 0.26, duration: 1.1, holes: 6 },
-  { id: 12, color: "chalk", size: 100, left: 7, top: 69, rotation: 18, startRotation: -96, delay: 0.34, duration: 1.0, holes: 5, hideCompact: true },
-  { id: 13, color: "royal", size: 112, left: -4, top: 85, rotation: 30, startRotation: 126, delay: 0.42, duration: 1.08, holes: 6 },
-  { id: 14, color: "chalk", size: 108, left: 93, top: 17, rotation: -22, startRotation: 98, delay: 0.14, duration: 1.06, holes: 6 },
-  { id: 15, color: "royal", size: 88, left: 85, top: 34, rotation: 16, startRotation: -76, delay: 0.22, duration: 0.9, holes: 5, hideCompact: true, hideShort: true },
-  { id: 16, color: "chalk", size: 116, left: 92, top: 49, rotation: 26, startRotation: 108, delay: 0.3, duration: 1.1, holes: 6 },
-  { id: 17, color: "royal", size: 102, left: 84, top: 68, rotation: -16, startRotation: -116, delay: 0.38, duration: 1.0, holes: 5, hideCompact: true },
-  { id: 18, color: "chalk", size: 114, left: 92, top: 84, rotation: -30, startRotation: 90, delay: 0.46, duration: 1.08, holes: 6 },
-  { id: 19, color: "royal", size: 102, left: 13, top: 90, rotation: 20, startRotation: -88, delay: 0.24, duration: 1.04, holes: 5 },
-  { id: 20, color: "chalk", size: 86, left: 28, top: 92, rotation: -14, startRotation: 118, delay: 0.32, duration: 0.9, holes: 5, hideCompact: true, hideShort: true },
-  { id: 21, color: "royal", size: 112, left: 41, top: 89, rotation: -26, startRotation: -120, delay: 0.4, duration: 1.08, holes: 6 },
-  { id: 22, color: "leaf", size: 90, left: 55, top: 92, rotation: 12, startRotation: 104, delay: 0.48, duration: 0.94, holes: 5, hideCompact: true },
-  { id: 23, color: "chalk", size: 108, left: 69, top: 89, rotation: 24, startRotation: -94, delay: 0.56, duration: 1.06, holes: 6 },
-  { id: 24, color: "royal", size: 94, left: 83, top: 92, rotation: -18, startRotation: 112, delay: 0.64, duration: 0.96, holes: 5, hideCompact: true, hideShort: true }
-];
+const colors: BallColor[] = ["chalk", "royal", "chalk", "royal", "leaf", "royal", "chalk"];
+const sizes = [184, 212, 168, 196, 228, 176, 204];
+const rotations = [-28, 18, -12, 30, -22, 10, 24, -18];
+const horizontalJitter = [-2.2, 1.4, -0.8, 2.1, -1.5, 0.6, 1.8, -1.1, 0.9, -0.4];
+const verticalJitter = [-1.8, 1.2, -0.5, 1.7, -1.1, 0.8, -1.5];
+
+const balls: BallSpec[] = Array.from({ length: 70 }, (_, index) => {
+  const row = Math.floor(index / 10);
+  const column = index % 10;
+  const rotation = rotations[(index + row) % rotations.length];
+
+  return {
+    id: index + 1,
+    color: colors[(index * 2 + row) % colors.length],
+    size: sizes[(index * 3 + row) % sizes.length],
+    left: column * 11 - 5 - (row % 2 === 0 ? 0 : 5.5) + horizontalJitter[column],
+    top: row * 16 - 8 + verticalJitter[row],
+    rotation,
+    startRotation: rotation + (index % 2 === 0 ? -108 : 112),
+    delay: 0.03 + (index % 12) * 0.045,
+    duration: 0.9 + (index % 5) * 0.045,
+    holes: index % 3 === 0 ? 6 : 5
+  };
+});
 
 const base = import.meta.env.BASE_URL.endsWith("/") ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
 const iconUrl = `${base}littlepickle-app-icon.png`;
@@ -81,8 +77,7 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
               <div
                 class:list={[
                   "ball",
-                  `ball--${ball.color}`,
-                  { "ball--hide-compact": ball.hideCompact, "ball--hide-short": ball.hideShort }
+                  `ball--${ball.color}`
                 ]}
                 style={`--ball-size:${ball.size}px;--ball-left:${ball.left}%;--ball-top:${ball.top}%;--ball-rotation:${ball.rotation}deg;--ball-start-rotation:${ball.startRotation}deg;--ball-delay:${ball.delay}s;--ball-duration:${ball.duration}s;`}
               >
