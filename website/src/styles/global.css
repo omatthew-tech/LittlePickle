@@ -66,7 +66,7 @@ img {
   position: absolute;
   left: var(--ball-left);
   top: var(--ball-top);
-  width: min(var(--ball-size), 23vmin);
+  width: var(--ball-size);
   aspect-ratio: 1;
   border: var(--lp-border-interactive) solid var(--ball-outline);
   border-radius: var(--lp-radius-pill);

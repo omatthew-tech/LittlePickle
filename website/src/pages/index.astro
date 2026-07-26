@@ -4,46 +4,6 @@ import "@fontsource/cabin/latin-600.css";
 import "@fontsource/cabin/latin-700.css";
 import "../styles/global.css";
 
-type BallColor = "royal" | "chalk" | "leaf";
-
-interface BallSpec {
-  id: number;
-  color: BallColor;
-  size: number;
-  left: number;
-  top: number;
-  rotation: number;
-  startRotation: number;
-  delay: number;
-  duration: number;
-  holes: number;
-}
-
-const colors: BallColor[] = ["chalk", "royal", "chalk", "royal", "leaf", "royal", "chalk"];
-const sizes = [184, 212, 168, 196, 228, 176, 204];
-const rotations = [-28, 18, -12, 30, -22, 10, 24, -18];
-const horizontalJitter = [-2.2, 1.4, -0.8, 2.1, -1.5, 0.6, 1.8, -1.1, 0.9, -0.4];
-const verticalJitter = [-1.8, 1.2, -0.5, 1.7, -1.1, 0.8, -1.5];
-
-const balls: BallSpec[] = Array.from({ length: 70 }, (_, index) => {
-  const row = Math.floor(index / 10);
-  const column = index % 10;
-  const rotation = rotations[(index + row) % rotations.length];
-
-  return {
-    id: index + 1,
-    color: colors[(index * 2 + row) % colors.length],
-    size: sizes[(index * 3 + row) % sizes.length],
-    left: column * 11 - 5 - (row % 2 === 0 ? 0 : 5.5) + horizontalJitter[column],
-    top: row * 16 - 8 + verticalJitter[row],
-    rotation,
-    startRotation: rotation + (index % 2 === 0 ? -108 : 112),
-    delay: 0.03 + (index % 12) * 0.045,
-    duration: 0.9 + (index % 5) * 0.045,
-    holes: index % 3 === 0 ? 6 : 5
-  };
-});
-
 const base = import.meta.env.BASE_URL.endsWith("/") ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
 const iconUrl = `${base}littlepickle-app-icon.png`;
 const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
@@ -71,21 +31,7 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
   <body>
     <main class="site-shell">
       <section class="basket" aria-labelledby="littlepickle-title">
-        <div class="ball-field" aria-hidden="true">
-          {
-            balls.map((ball) => (
-              <div
-                class:list={[
-                  "ball",
-                  `ball--${ball.color}`
-                ]}
-                style={`--ball-size:${ball.size}px;--ball-left:${ball.left}%;--ball-top:${ball.top}%;--ball-rotation:${ball.rotation}deg;--ball-start-rotation:${ball.startRotation}deg;--ball-delay:${ball.delay}s;--ball-duration:${ball.duration}s;`}
-              >
-                {Array.from({ length: ball.holes }, (_, index) => <span class={`ball__hole ball__hole--${index + 1}`} />)}
-              </div>
-            ))
-          }
-        </div>
+        <div class="ball-field" aria-hidden="true"></div>
 
         <article class="hero-panel">
           <div class="brand-lockup">
@@ -115,5 +61,87 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
         </article>
       </section>
     </main>
+
+    <script>
+      const field = document.querySelector<HTMLElement>(".ball-field");
+      const ballColors = ["chalk", "royal", "chalk", "leaf", "royal", "chalk", "royal"] as const;
+      const ballRotations = [-28, 18, -12, 30, -22, 10, 24, -18];
+      const collisionGap = 4;
+      const minimumDiameter = 84;
+      const maximumDiameter = 176;
+      const targetColumns = 12;
+      const targetRows = 7;
+      const packedBalls: HTMLElement[] = [];
+
+      const createBall = (index: number) => {
+        const ball = document.createElement("div");
+        const rotation = ballRotations[index % ballRotations.length];
+        const holeCount = index % 3 === 0 ? 6 : 5;
+
+        ball.className = `ball ball--${ballColors[(index * 2) % ballColors.length]}`;
+        ball.style.setProperty("--ball-rotation", `${rotation}deg`);
+        ball.style.setProperty("--ball-start-rotation", `${rotation + (index % 2 === 0 ? -108 : 112)}deg`);
+        ball.style.setProperty("--ball-duration", `${0.9 + (index % 5) * 0.045}s`);
+
+        for (let holeIndex = 1; holeIndex <= holeCount; holeIndex += 1) {
+          const hole = document.createElement("span");
+          hole.className = `ball__hole ball__hole--${holeIndex}`;
+          ball.append(hole);
+        }
+
+        return ball;
+      };
+
+      const packBalls = () => {
+        if (!field) {
+          return;
+        }
+
+        const { clientWidth: width, clientHeight: height } = field;
+        const diameter = Math.max(
+          minimumDiameter,
+          Math.min(width / targetColumns, height / targetRows, maximumDiameter)
+        );
+        const horizontalStep = diameter + collisionGap;
+        const verticalStep = horizontalStep * Math.sqrt(3) / 2;
+        const columns = Math.ceil(width / horizontalStep) + 2;
+        const rows = Math.ceil(height / verticalStep) + 2;
+        const ballCount = columns * rows;
+
+        while (packedBalls.length < ballCount) {
+          const ball = createBall(packedBalls.length);
+          packedBalls.push(ball);
+          field.append(ball);
+        }
+
+        packedBalls.forEach((ball, index) => {
+          if (index >= ballCount) {
+            ball.hidden = true;
+            return;
+          }
+
+          const row = Math.floor(index / columns);
+          const column = index % columns;
+          const left = column * horizontalStep + (row % 2 === 0 ? 0 : horizontalStep / 2) - diameter / 2;
+          const top = row * verticalStep - diameter / 2;
+          const fillRow = rows - row - 1;
+          const delay = fillRow * 0.065 + (column % 4) * 0.018;
+
+          ball.hidden = false;
+          ball.style.setProperty("--ball-size", `${diameter}px`);
+          ball.style.setProperty("--ball-left", `${left}px`);
+          ball.style.setProperty("--ball-top", `${top}px`);
+          ball.style.setProperty("--ball-delay", `${delay}s`);
+        });
+
+        field.dataset.packed = "true";
+      };
+
+      packBalls();
+
+      if (field) {
+        new ResizeObserver(packBalls).observe(field);
+      }
+    </script>
   </body>
 </html>
