@@ -14,16 +14,16 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="description" content="LittlePickle is the easiest pickleball queue for your local courts." />
+    <meta name="description" content='LittlePickle is the easiest way to figure out "Who plays next?"' />
     <meta name="theme-color" content="#F6F2E8" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="LittlePickle" />
-    <meta property="og:description" content="The easiest pickleball queue for your local courts." />
+    <meta property="og:description" content='The easiest way to figure out "Who plays next?"' />
     <meta property="og:url" content={pageUrl} />
     <meta property="og:image" content={`${pageUrl}littlepickle-app-icon.png`} />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="LittlePickle" />
-    <meta name="twitter:description" content="The easiest pickleball queue for your local courts." />
+    <meta name="twitter:description" content='The easiest way to figure out "Who plays next?"' />
     <meta name="twitter:image" content={`${pageUrl}littlepickle-app-icon.png`} />
     <link rel="icon" type="image/png" href={iconUrl} />
     <title>LittlePickle — Your local court, sorted.</title>
@@ -39,7 +39,7 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
             <h1 id="littlepickle-title">LittlePickle</h1>
           </div>
 
-          <p class="tagline">The easiest pickleball queue for your local courts.</p>
+          <p class="tagline">The easiest way to figure out "Who plays next?"</p>
 
           <div class="store-actions" aria-label="LittlePickle app availability">
             <button class="store-button" type="button" aria-label="App Store, coming soon" disabled>
