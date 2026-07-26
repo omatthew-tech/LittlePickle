@@ -269,6 +269,11 @@ h1 {
   }
 }
 
+.ball-field[data-settled="true"] .ball {
+  animation: none;
+  transform: rotate(var(--ball-rotation));
+}
+
 @media (max-width: 767px) {
   .hero-panel {
     width: calc(100% - 36px);

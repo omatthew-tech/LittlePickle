@@ -72,6 +72,9 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
       const targetColumns = 12;
       const targetRows = 7;
       const packedBalls: HTMLElement[] = [];
+      let packedWidth = 0;
+      let packedHeight = 0;
+      let hasPacked = false;
 
       const createBall = (index: number) => {
         const ball = document.createElement("div");
@@ -98,6 +101,18 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
         }
 
         const { clientWidth: width, clientHeight: height } = field;
+
+        if (width === packedWidth && height === packedHeight) {
+          return;
+        }
+
+        if (hasPacked) {
+          field.dataset.settled = "true";
+        }
+
+        packedWidth = width;
+        packedHeight = height;
+
         const diameter = Math.max(
           minimumDiameter,
           Math.min(width / targetColumns, height / targetRows, maximumDiameter)
@@ -135,6 +150,7 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
         });
 
         field.dataset.packed = "true";
+        hasPacked = true;
       };
 
       packBalls();
