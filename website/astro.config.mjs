@@ -1,7 +1,6 @@
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  site: "https://omatthew-tech.github.io",
-  base: "/LittlePickle",
+  site: "https://littlepickle.pages.dev",
   output: "static"
 });
