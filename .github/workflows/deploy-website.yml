@@ -7,7 +7,6 @@ on:
     paths:
       - "website/**"
       - ".github/workflows/deploy-website.yml"
-      - "web/littlepickle.css"
   workflow_dispatch:
 
 permissions:

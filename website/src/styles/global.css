@@ -1,4 +1,4 @@
-@import "../../../web/littlepickle.css";
+@import "./tokens.css";
 
 :root {
   --lp-marketing-frame-max: 1200px;

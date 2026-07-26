@@ -1,0 +1,54 @@
+:root {
+  color-scheme: light;
+  --lp-color-blue-chalk: #e8ecfa;
+  --lp-color-club-royal: #4b63c6;
+  --lp-color-match-point: #3d50a8;
+  --lp-color-pickle-leaf: #cbdda4;
+  --lp-color-court-paper: #f6f2e8;
+  --lp-color-club-card: #fffdf8;
+  --lp-color-scoreboard-ink: #22283a;
+  --lp-color-net-cord: #686d7a;
+  --lp-color-court-edge: #7f8592;
+  --lp-color-shoe-dust: #d8d5cd;
+
+  --lp-surface-canvas: var(--lp-color-court-paper);
+  --lp-surface-card: var(--lp-color-club-card);
+  --lp-surface-info: var(--lp-color-blue-chalk);
+  --lp-surface-social: var(--lp-color-pickle-leaf);
+  --lp-text-primary: var(--lp-color-scoreboard-ink);
+  --lp-text-secondary: var(--lp-color-net-cord);
+  --lp-action-primary: var(--lp-color-club-royal);
+  --lp-action-primary-pressed: var(--lp-color-match-point);
+  --lp-border-control: var(--lp-color-court-edge);
+  --lp-border-subtle: var(--lp-color-shoe-dust);
+
+  --lp-font-interface: "Cabin", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --lp-space-6: 6px;
+  --lp-space-12: 12px;
+  --lp-space-16: 16px;
+  --lp-space-20: 20px;
+  --lp-space-28: 28px;
+
+  --lp-radius-control: 14px;
+  --lp-radius-card: 18px;
+  --lp-radius-pill: 999px;
+  --lp-border-interactive: 1.5px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--lp-surface-canvas);
+  color: var(--lp-text-primary);
+  font-family: var(--lp-font-interface);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+button {
+  font: inherit;
+}
