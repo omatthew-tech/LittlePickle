@@ -1,0 +1,72 @@
+---
+import "@fontsource/cabin/latin-400.css";
+import "@fontsource/cabin/latin-600.css";
+import "@fontsource/cabin/latin-700.css";
+import "../styles/legal.css";
+
+interface Props {
+  description: string;
+  eyebrow?: string;
+  title: string;
+}
+
+const { description, eyebrow = "LittlePickle", title } = Astro.props;
+const base = import.meta.env.BASE_URL.endsWith("/") ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
+const iconUrl = `${base}littlepickle-app-icon.png`;
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin).toString();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#F6F2E8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={`${title} | LittlePickle`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={new URL("littlepickle-app-icon.png", Astro.site ?? Astro.url.origin).toString()} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" type="image/png" href={iconUrl} />
+    <title>{title} | LittlePickle</title>
+  </head>
+  <body>
+    <header class="legal-site-header">
+      <a class="legal-brand" href={base} aria-label="LittlePickle home">
+        <img src={iconUrl} alt="" width="1254" height="1254" />
+        <span>LittlePickle</span>
+      </a>
+
+      <nav class="legal-site-nav" aria-label="Legal and support">
+        <a href={`${base}privacy/`}>Privacy</a>
+        <a href={`${base}support/`}>Support</a>
+        <a href={`${base}terms/`}>Terms</a>
+      </nav>
+    </header>
+
+    <main class="legal-shell">
+      <article class="legal-document">
+        <header class="legal-document__header">
+          <p class="legal-eyebrow">{eyebrow}</p>
+          <h1>{title}</h1>
+          <p class="legal-summary">{description}</p>
+        </header>
+
+        <div class="legal-content">
+          <slot />
+        </div>
+      </article>
+    </main>
+
+    <footer class="legal-site-footer">
+      <p>© {new Date().getFullYear()} LittlePickle</p>
+      <nav aria-label="Footer">
+        <a href={`${base}legal/`}>Legal</a>
+        <a href={`${base}account-deletion/`}>Delete an account</a>
+        <a href="mailto:support@joinlittlepickle.com">Contact support</a>
+      </nav>
+    </footer>
+  </body>
+</html>

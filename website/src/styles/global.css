@@ -245,6 +245,32 @@ h1 {
   white-space: nowrap;
 }
 
+.hero-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--lp-space-12) var(--lp-space-20);
+}
+
+.hero-legal-links a {
+  color: var(--lp-text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.hero-legal-links a:hover {
+  color: var(--lp-action-primary-pressed);
+}
+
+.hero-legal-links a:focus-visible {
+  outline: 3px solid var(--lp-color-pickle-leaf);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
 @keyframes ball-drop {
   0% {
     opacity: 0;
@@ -341,6 +367,10 @@ h1 {
 
   .store-button__status {
     display: none;
+  }
+
+  .hero-legal-links {
+    gap: var(--lp-space-6) var(--lp-space-16);
   }
 }
 

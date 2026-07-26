@@ -58,6 +58,12 @@ const pageUrl = new URL("/", Astro.site ?? Astro.url.origin).toString();
               <span class="store-button__status">Coming soon</span>
             </button>
           </div>
+
+          <nav class="hero-legal-links" aria-label="Legal and support">
+            <a href={`${base}privacy/`}>Privacy</a>
+            <a href={`${base}support/`}>Support</a>
+            <a href={`${base}terms/`}>Terms</a>
+          </nav>
         </article>
       </section>
     </main>
