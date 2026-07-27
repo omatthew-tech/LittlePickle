@@ -10,6 +10,7 @@ type AuthContextValue = {
   sendEmailOtp: (email: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signOutLocally: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   verifyEmailOtp: (email: string, token: string) => Promise<Session>;
 };
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       session,
       signIn,
       signOut,
+      signOutLocally,
       signUp,
       verifyEmailOtp
     }),
@@ -179,6 +181,18 @@ async function signOut() {
 
   if (error) {
     throw new Error(friendlyAuthMessage(error, "Could not sign out."));
+  }
+}
+
+async function signOutLocally() {
+  if (!supabase) {
+    return;
+  }
+
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+
+  if (error) {
+    throw new Error(friendlyAuthMessage(error, "Could not clear the local session."));
   }
 }
 

@@ -285,6 +285,54 @@ def test_player_data_retention_purges_records_and_storage_images():
     ]
 
 
+def test_account_deletion_schedules_then_bans_authenticated_user():
+    gateway = AccountDeletionRecordingGateway()
+
+    result = asyncio.run(gateway.request_account_deletion("user-token"))
+
+    assert result.scheduled is True
+    assert result.deletion_scheduled_at.isoformat() == "2026-08-25T12:00:00+00:00"
+    assert gateway.user_calls == [
+        ("schedule_current_account_deletion", {}, "user-token")
+    ]
+    assert gateway.banned_user_ids == ["user-one"]
+    assert gateway.service_calls == []
+
+
+def test_account_deletion_rolls_back_schedule_when_ban_fails():
+    gateway = AccountDeletionRecordingGateway()
+    gateway.fail_ban = True
+
+    with pytest.raises(RuntimeError, match="ban failed"):
+        asyncio.run(gateway.request_account_deletion("user-token"))
+
+    assert gateway.service_calls == [
+        ("cancel_account_deletion", {"p_user_id": "user-one"})
+    ]
+
+
+def test_due_account_retention_deletes_storage_then_auth_user():
+    gateway = AccountRetentionRecordingGateway()
+
+    result = asyncio.run(gateway.purge_due_accounts())
+
+    assert result == {
+        "deleted_accounts": 2,
+        "failed_accounts": 0,
+        "deleted_account_profile_images": 2,
+    }
+    assert gateway.deleted_image_paths == [
+        "user-one/avatar.jpg",
+        "user-two/avatar.png",
+    ]
+    assert gateway.deleted_auth_user_ids == ["user-one", "user-two"]
+    assert gateway.service_calls == [
+        ("due_account_deletions", {}),
+        ("prepare_account_auth_deletion", {"p_user_id": "user-one"}),
+        ("prepare_account_auth_deletion", {"p_user_id": "user-two"}),
+    ]
+
+
 class RecordingGateway(SupabaseGateway):
     def __init__(self) -> None:
         super().__init__(
@@ -358,6 +406,84 @@ class RetentionRecordingGateway(SupabaseGateway):
 
     async def _delete_profile_images(self, image_paths: list[str]) -> None:
         self.deleted_image_paths.extend(image_paths)
+
+
+class AccountDeletionRecordingGateway(SupabaseGateway):
+    def __init__(self) -> None:
+        super().__init__(
+            Settings(
+                SUPABASE_URL="https://example.supabase.co",
+                SUPABASE_ANON_KEY="anon",
+                SUPABASE_SERVICE_ROLE_KEY="service",
+            )
+        )
+        self.banned_user_ids: list[str] = []
+        self.fail_ban = False
+        self.service_calls: list[tuple[str, dict]] = []
+        self.user_calls: list[tuple[str, dict, str]] = []
+
+    async def _current_auth_user_id(self, access_token: str) -> str:
+        assert access_token == "user-token"
+        return "user-one"
+
+    async def _rpc_as_user(
+        self,
+        function_name: str,
+        payload: dict,
+        access_token: str,
+    ):
+        self.user_calls.append((function_name, payload, access_token))
+        return {
+            "scheduled": True,
+            "deletion_scheduled_at": "2026-08-25T12:00:00Z",
+        }
+
+    async def _rpc_as_service(self, function_name: str, payload: dict):
+        self.service_calls.append((function_name, payload))
+
+    async def _ban_auth_user(self, user_id: str) -> None:
+        if self.fail_ban:
+            raise RuntimeError("ban failed")
+        self.banned_user_ids.append(user_id)
+
+
+class AccountRetentionRecordingGateway(SupabaseGateway):
+    def __init__(self) -> None:
+        super().__init__(
+            Settings(
+                SUPABASE_URL="https://example.supabase.co",
+                SUPABASE_ANON_KEY="anon",
+                SUPABASE_SERVICE_ROLE_KEY="service",
+            )
+        )
+        self.deleted_auth_user_ids: list[str] = []
+        self.deleted_image_paths: list[str] = []
+        self.service_calls: list[tuple[str, dict]] = []
+
+    async def _rpc_as_service(self, function_name: str, payload: dict):
+        self.service_calls.append((function_name, payload))
+
+        if function_name == "due_account_deletions":
+            return [
+                {"user_id": "user-one"},
+                {"user_id": "user-two"},
+            ]
+
+        if function_name == "prepare_account_auth_deletion":
+            user_id = payload["p_user_id"]
+            extension = "jpg" if user_id == "user-one" else "png"
+            return {
+                "user_id": user_id,
+                "profile_image_paths": [f"{user_id}/avatar.{extension}"],
+            }
+
+        raise AssertionError(f"Unexpected service RPC: {function_name}")
+
+    async def _delete_profile_images(self, image_paths: list[str]) -> None:
+        self.deleted_image_paths.extend(image_paths)
+
+    async def _delete_auth_user(self, user_id: str) -> None:
+        self.deleted_auth_user_ids.append(user_id)
 
 
 def _recommendation_response():

@@ -2,6 +2,7 @@
 
 FastAPI service for the match-flow commands that should stay authoritative:
 
+- scheduling and permanently completing Supabase authentication-account deletion
 - completing a match and generating the next recommendations
 - passing a player and regenerating recommendations
 - accepting a recommendation and creating the active match
@@ -150,10 +151,11 @@ Authorization: Bearer <supabase-access-token>
 
 Main flow:
 
-1. `POST /recommendations/{recommendation_id}/accept` creates an active match on the requested court or lowest open court.
-2. `POST /matches/{match_id}/complete` saves a mode-matched result, advances queue state, regenerates recommendations, stores the new batch in Supabase, and returns it. Send either `{"result_mode":"score","team_one_score":11,"team_two_score":7}` or `{"result_mode":"win_loss","winning_team":1}`.
-3. `POST /sessions/{session_id}/matches/custom` creates and completes a match for four selected current-session players without requiring a previously started match. It accepts the same discriminated result fields, then advances the queue and regenerates recommendations through the normal completion flow.
-4. `POST /recommendations/{recommendation_id}/pass-player` moves the passed player to the end of the queue, regenerates recommendations, stores the new batch, and returns it.
+1. `POST /account/deletion` validates the bearer token, schedules permanent account deletion after 30 days, and immediately bans the Supabase Auth user. The retention worker removes account-owned profile images and the Auth user when deletion becomes due.
+2. `POST /recommendations/{recommendation_id}/accept` creates an active match on the requested court or lowest open court.
+3. `POST /matches/{match_id}/complete` saves a mode-matched result, advances queue state, regenerates recommendations, stores the new batch in Supabase, and returns it. Send either `{"result_mode":"score","team_one_score":11,"team_two_score":7}` or `{"result_mode":"win_loss","winning_team":1}`.
+4. `POST /sessions/{session_id}/matches/custom` creates and completes a match for four selected current-session players without requiring a previously started match. It accepts the same discriminated result fields, then advances the queue and regenerates recommendations through the normal completion flow.
+5. `POST /recommendations/{recommendation_id}/pass-player` moves the passed player to the end of the queue, regenerates recommendations, stores the new batch, and returns it.
 
 Supabase RPCs used by the Expo app:
 
@@ -183,6 +185,7 @@ Supabase RPCs used by the Expo app:
 - `active_matches`
 - `completed_matches`
 - `update_completed_match_result`
+- `schedule_current_account_deletion`
 
 Recommendation batches are stored with `replace_recommendation_batch_v2`,
 which rejects stale queue versions and returns an existing same-version batch

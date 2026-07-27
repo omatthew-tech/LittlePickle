@@ -11,6 +11,7 @@ from .config import Settings, get_settings
 from .models import (
     AcceptRecommendationRequest,
     AcceptRecommendationResponse,
+    AccountDeletionResponse,
     CompleteMatchRequest,
     CustomMatchRequest,
     MatchRecommendation,
@@ -108,6 +109,16 @@ def create_app() -> FastAPI:
             "email_configured": settings.email_configured,
             "algorithm_version": settings.algorithm_version,
         }
+
+    @app.post("/account/deletion", response_model=AccountDeletionResponse)
+    async def request_account_deletion(
+        authorization: str | None = Header(default=None),
+        current_settings: Settings = Depends(get_settings),
+    ) -> AccountDeletionResponse:
+        access_token = bearer_token_from_header(authorization)
+        return await SupabaseGateway(current_settings).request_account_deletion(
+            access_token
+        )
 
     @app.post("/recommendations/preview", response_model=RecommendationResponse)
     async def preview_recommendations(

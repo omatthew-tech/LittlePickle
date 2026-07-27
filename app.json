@@ -3,22 +3,28 @@
     "name": "LittlePickle",
     "slug": "littlepickle",
     "icon": "./assets/littlepickle-app-icon.png",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "userInterfaceStyle": "light",
     "scheme": "littlepickle",
     "plugins": [
       [
         "expo-camera",
         {
-          "cameraPermission": "LittlePickle uses your camera to scan league QR codes."
+          "cameraPermission": "LittlePickle uses your camera to scan league QR codes.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "LittlePickle uses your photos so you can choose a profile picture."
+          "photosPermission": "LittlePickle uses your photos so you can choose a profile picture.",
+          "microphonePermission": false
         }
       ],
       [
@@ -34,12 +40,25 @@
       "bundleIdentifier": "com.littlepickle.app",
       "supportsTablet": false,
       "infoPlist": {
-        "UIUserInterfaceStyle": "Light"
+        "UIUserInterfaceStyle": "Light",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false
+        }
       }
     },
     "android": {
       "package": "com.littlepickle.app",
-      "softwareKeyboardLayoutMode": "resize"
-    }
+      "softwareKeyboardLayoutMode": "resize",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4c4db851-7503-41cb-87ee-e4f1d71bc4a7"
+      }
+    },
+    "owner": "matthewoz101"
   }
 }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -9,12 +10,15 @@ from fastapi import HTTPException, status
 from .config import Settings
 from .models import (
     AcceptRecommendationResponse,
+    AccountDeletionResponse,
     CompleteMatchRequest,
     CustomMatchRequest,
     PassPlayerRequest,
     RecommendationResponse,
     RecommendationSnapshot,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class StaleRecommendationVersionError(RuntimeError):
@@ -140,6 +144,34 @@ class SupabaseGateway:
             detail="Only league admins can send this QR email.",
         )
 
+    async def request_account_deletion(
+        self,
+        access_token: str,
+    ) -> AccountDeletionResponse:
+        user_id = await self._current_auth_user_id(access_token)
+        scheduled = await self._rpc_as_user(
+            "schedule_current_account_deletion",
+            {},
+            access_token,
+        )
+
+        try:
+            await self._ban_auth_user(user_id)
+        except Exception:
+            try:
+                await self._rpc_as_service(
+                    "cancel_account_deletion",
+                    {"p_user_id": user_id},
+                )
+            except Exception:
+                logger.exception(
+                    "Could not roll back the account deletion request for user %s.",
+                    user_id,
+                )
+            raise
+
+        return AccountDeletionResponse.model_validate(scheduled)
+
     async def purge_deactivated_players(self) -> dict[str, int]:
         purged_count = await self._rpc_as_service(
             "purge_due_deactivated_players",
@@ -167,6 +199,59 @@ class SupabaseGateway:
         return {
             "purged_players": int(purged_count or 0),
             "deleted_profile_images": len(image_paths),
+        }
+
+    async def purge_due_accounts(self) -> dict[str, int]:
+        due_accounts = await self._rpc_as_service("due_account_deletions", {})
+        deleted_accounts = 0
+        failed_accounts = 0
+        deleted_profile_images = 0
+
+        if not isinstance(due_accounts, list):
+            return {
+                "deleted_accounts": 0,
+                "failed_accounts": 0,
+                "deleted_account_profile_images": 0,
+            }
+
+        for item in due_accounts:
+            user_id = item.get("user_id") if isinstance(item, dict) else None
+            if not isinstance(user_id, str) or not user_id:
+                continue
+
+            try:
+                prepared = await self._rpc_as_service(
+                    "prepare_account_auth_deletion",
+                    {"p_user_id": user_id},
+                )
+                image_paths = (
+                    prepared.get("profile_image_paths", [])
+                    if isinstance(prepared, dict)
+                    else []
+                )
+                valid_image_paths = [
+                    path
+                    for path in image_paths
+                    if isinstance(path, str) and path
+                ] if isinstance(image_paths, list) else []
+
+                if valid_image_paths:
+                    await self._delete_profile_images(valid_image_paths)
+                    deleted_profile_images += len(valid_image_paths)
+
+                await self._delete_auth_user(user_id)
+                deleted_accounts += 1
+            except Exception:
+                failed_accounts += 1
+                logger.exception(
+                    "Permanent account deletion failed for user %s; it will be retried.",
+                    user_id,
+                )
+
+        return {
+            "deleted_accounts": deleted_accounts,
+            "failed_accounts": failed_accounts,
+            "deleted_account_profile_images": deleted_profile_images,
         }
 
     async def store_recommendations(
@@ -299,6 +384,96 @@ class SupabaseGateway:
                     "error": _safe_json(response),
                 },
             )
+
+    async def _current_auth_user_id(self, access_token: str) -> str:
+        self._require_supabase()
+        supabase_url = str(self.settings.supabase_url).rstrip("/")
+        headers = {
+            "apikey": self.settings.supabase_anon_key or "",
+            "authorization": f"Bearer {access_token}",
+        }
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.get(
+                f"{supabase_url}/auth/v1/user",
+                headers=headers,
+            )
+
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=_map_supabase_status(response.status_code),
+                detail={
+                    "supabase_status": response.status_code,
+                    "operation": "validate account deletion identity",
+                    "error": _safe_json(response),
+                },
+            )
+
+        payload = _safe_json(response)
+        user_id = payload.get("id") if isinstance(payload, dict) else None
+        if not isinstance(user_id, str) or not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Supabase did not return the authenticated user.",
+            )
+        return user_id
+
+    async def _ban_auth_user(self, user_id: str) -> None:
+        await self._auth_admin_request(
+            "PUT",
+            f"/auth/v1/admin/users/{user_id}",
+            json={"ban_duration": "876000h"},
+            operation="disable account pending deletion",
+        )
+
+    async def _delete_auth_user(self, user_id: str) -> None:
+        await self._auth_admin_request(
+            "DELETE",
+            f"/auth/v1/admin/users/{user_id}",
+            allow_not_found=True,
+            operation="permanently delete account",
+        )
+
+    async def _auth_admin_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        allow_not_found: bool = False,
+        json: dict[str, Any] | None = None,
+        operation: str,
+    ) -> Any:
+        self._require_supabase()
+        service_key = self.settings.supabase_service_role_key or ""
+        supabase_url = str(self.settings.supabase_url).rstrip("/")
+        headers = {
+            "apikey": service_key,
+            "authorization": f"Bearer {service_key}",
+            "content-type": "application/json",
+        }
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.request(
+                method,
+                f"{supabase_url}{path}",
+                headers=headers,
+                json=json,
+            )
+
+        if allow_not_found and response.status_code == 404:
+            return None
+
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=_map_supabase_status(response.status_code),
+                detail={
+                    "supabase_status": response.status_code,
+                    "operation": operation,
+                    "error": _safe_json(response),
+                },
+            )
+
+        return _safe_json(response)
 
     def _require_supabase(self) -> None:
         if not self.settings.supabase_configured:

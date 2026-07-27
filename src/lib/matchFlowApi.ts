@@ -28,6 +28,16 @@ export async function previewRecommendations(snapshot: RecommendationSnapshot) {
   });
 }
 
+export async function requestAccountDeletion() {
+  return requestMatchFlow<{
+    scheduled: boolean;
+    deletion_scheduled_at: string;
+  }>("/account/deletion", {
+    authenticated: true,
+    method: "POST"
+  });
+}
+
 export async function completeMatch(matchId: string, request: CompleteMatchRequest) {
   return requestMatchFlow<RecommendationResponse>(`/matches/${matchId}/complete`, {
     body: request,

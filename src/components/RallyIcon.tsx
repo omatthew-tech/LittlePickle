@@ -13,7 +13,8 @@ export type RallyIconName =
   | "profile"
   | "scan"
   | "score"
-  | "search";
+  | "search"
+  | "settings";
 
 type RallyIconProps = {
   color: string;
@@ -124,6 +125,13 @@ function renderIcon(name: RallyIconName, color: string) {
         <>
           <Circle cx="10.5" cy="10.5" r="5.5" />
           <Path d="m15 15 5 5" />
+        </>
+      );
+    case "settings":
+      return (
+        <>
+          <Path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.3.4A2 2 0 0 0 4 9.9l.1.1a2 2 0 0 1 1 1.7v.6a2 2 0 0 1-1 1.7l-.1.1a2 2 0 0 0-.8 2.7l.3.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.3-.4a2 2 0 0 0-.8-2.7l-.1-.1a2 2 0 0 1-1-1.7v-.6a2 2 0 0 1 1-1.7l.1-.1a2 2 0 0 0 .8-2.7l-.3-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z" />
+          <Circle cx="12" cy="12" r="3" />
         </>
       );
   }

@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CurrentPlayersSection } from "../components/CurrentPlayersSection";
 import { RallyIcon } from "../components/RallyIcon";
 import { theme } from "../design/theme";
+import { publicProfileImageUrl } from "../lib/profileImages";
 import { usePlaySession } from "../lib/usePlaySession";
 import type { Player } from "../data/sampleClub";
 
@@ -86,6 +88,8 @@ export function LeagueQueueScreen({
     [players, profile.playerId]
   );
   const displayName = queuedPlayer?.name ?? profile.displayName;
+  const avatarUrl =
+    queuedPlayer?.avatarUrl ?? (profile.avatarPath ? publicProfileImageUrl(profile.avatarPath) : null);
   const isQueued = Boolean(queuedPlayer?.inSession);
   const shouldShowStats = isQueued || (!readOnly && !animateStatsReveal);
   const rank = leagueRankLabel(queuedPlayer, players);
@@ -269,9 +273,13 @@ export function LeagueQueueScreen({
       <View style={[styles.queueCard, isQueued ? styles.queueCardQueued : null]}>
         <View style={styles.queueIdentityRow}>
           <View style={styles.queueAvatar}>
-            <Text numberOfLines={1} style={styles.queueAvatarText}>
-              {initialsFor(displayName)}
-            </Text>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.queueAvatarImage} />
+            ) : (
+              <Text numberOfLines={1} style={styles.queueAvatarText}>
+                {initialsFor(displayName)}
+              </Text>
+            )}
           </View>
           <Text numberOfLines={2} style={styles.queueName}>
             {displayName}
@@ -496,7 +504,12 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     height: theme.size.targetMinimum,
     justifyContent: "center",
+    overflow: "hidden",
     width: theme.size.targetMinimum
+  },
+  queueAvatarImage: {
+    height: "100%",
+    width: "100%"
   },
   queueAvatarText: {
     ...theme.type.titleCard,

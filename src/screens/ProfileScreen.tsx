@@ -6,6 +6,7 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -39,15 +40,32 @@ import {
 } from "../lib/littlePickleData";
 import {
   clearActiveLocalPlayerProfile,
+  clearAllLocalPlayerData,
   getActiveLocalPlayerProfile,
   saveActiveLocalPlayerProfile,
   type LocalPlayerProfile
 } from "../lib/localGuestProfile";
 import { activeMatchTeams } from "../lib/matchRecommendationMapping";
+import { requestAccountDeletion } from "../lib/matchFlowApi";
 import { publicProfileImageUrl, uploadProfileImage } from "../lib/profileImages";
 import type { CompletedMatch, MatchResultInput } from "../types/matchFlow";
 
 type SupportedProfileImageType = "image/jpeg" | "image/png" | "image/webp";
+
+const moreSettingsLinks = [
+  {
+    label: "Privacy Policy",
+    url: "https://joinlittlepickle.com/privacy/"
+  },
+  {
+    label: "Support",
+    url: "https://joinlittlepickle.com/support/"
+  },
+  {
+    label: "Terms of Use",
+    url: "https://joinlittlepickle.com/terms/"
+  }
+] as const;
 
 type ProfileScreenProps = {
   onActiveProfileChanged?: (profile: LocalPlayerProfile) => void;
@@ -59,13 +77,15 @@ export function ProfileScreen({
   onActiveProfileDeactivated
 }: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
-  const { configured, ensureAnonymousSession } = useAuth();
+  const { configured, ensureAnonymousSession, session, signOutLocally } = useAuth();
   const [activeProfile, setActiveProfile] = useState<LocalPlayerProfile | null>(null);
+  const [accountDeletionBusy, setAccountDeletionBusy] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [matchHistory, setMatchHistory] = useState<PlayerMatchHistoryResponse | null>(null);
   const [matchHistoryLoading, setMatchHistoryLoading] = useState(false);
   const [matchHistoryOpen, setMatchHistoryOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyEditMatchId, setHistoryEditMatchId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [nameEditError, setNameEditError] = useState<string | null>(null);
@@ -485,8 +505,8 @@ export function ProfileScreen({
 
     Alert.alert(
       "Delete profile?",
-      "This account will be immediately unavailable and will no longer be visible in the app. " +
-        "The player's information will be permanently deleted in 30 days unless support@littlepickle.com " +
+      "This player profile will be immediately unavailable and will no longer be visible in the app. " +
+        "The player's information will be permanently deleted in 30 days unless support@joinlittlepickle.com " +
         "or a league admin is notified.",
       [
         {
@@ -521,7 +541,7 @@ export function ProfileScreen({
       await clearActiveProfile();
       Alert.alert(
         "Player deactivated",
-        "The player is no longer available. Contact support@littlepickle.com or a league admin within 30 days to restore it."
+        "The player is no longer available. Contact support@joinlittlepickle.com or a league admin within 30 days to restore it."
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not deactivate the player.";
@@ -532,14 +552,95 @@ export function ProfileScreen({
     }
   }
 
+  function confirmDeleteAccount() {
+    if (!session || accountDeletionBusy) {
+      return;
+    }
+
+    Alert.alert(
+      "Delete account?",
+      "Your LittlePickle login will become inaccessible immediately and will be permanently deleted after 30 days. " +
+        "Shared player profiles are separate league records; delete a player profile separately if you want it removed.",
+      [
+        {
+          style: "cancel",
+          text: "Cancel"
+        },
+        {
+          onPress: () => void handleDeleteAccount(),
+          style: "destructive",
+          text: "Delete account"
+        }
+      ]
+    );
+  }
+
+  async function handleDeleteAccount() {
+    if (!session) {
+      return;
+    }
+
+    if (!configured) {
+      setErrorMessage("Supabase is not configured.");
+      return;
+    }
+
+    setAccountDeletionBusy(true);
+    setErrorMessage(null);
+
+    try {
+      await requestAccountDeletion();
+      let localCleanupFailed = false;
+
+      try {
+        await clearAllLocalPlayerData();
+      } catch {
+        localCleanupFailed = true;
+      }
+
+      try {
+        await signOutLocally();
+      } catch {
+        localCleanupFailed = true;
+      }
+
+      resetActiveProfileState();
+      Alert.alert(
+        "Account deletion scheduled",
+        localCleanupFailed
+          ? "Your account is no longer accessible and will be permanently deleted after 30 days. Restart the app to clear any remaining local data."
+          : "Your account is no longer accessible and will be permanently deleted after 30 days."
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not delete the account.";
+      setErrorMessage(message);
+      Alert.alert("Account not deleted", message);
+    } finally {
+      setAccountDeletionBusy(false);
+    }
+  }
+
+  async function openMoreSettingsLink(url: string) {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Link unavailable", "Could not open that page. Please try again.");
+    }
+  }
+
   async function clearActiveProfile() {
     await clearActiveLocalPlayerProfile();
+    resetActiveProfileState();
+  }
+
+  function resetActiveProfileState() {
     setActiveProfile(null);
     setHistoryEditMatchId(null);
     setMatchHistory(null);
     setMatchHistoryOpen(false);
     setNameDraft("");
     setOverview(null);
+    setSettingsOpen(false);
     setSwitcherOpen(false);
     onActiveProfileDeactivated?.();
   }
@@ -561,9 +662,20 @@ export function ProfileScreen({
         overScrollMode="never"
         showsVerticalScrollIndicator={false}
       >
-        <Text accessibilityRole="header" style={styles.pageTitle}>
-          Profile
-        </Text>
+        <View style={styles.pageHeader}>
+          <Text accessibilityRole="header" style={styles.pageTitle}>
+            Profile
+          </Text>
+          <Pressable
+            accessibilityLabel="Open settings"
+            accessibilityRole="button"
+            hitSlop={theme.space[8]}
+            onPress={() => setSettingsOpen(true)}
+            style={({ pressed }) => [styles.settingsButton, pressed ? styles.iconPressed : null]}
+          >
+            <RallyIcon color={theme.color.text.primary} name="settings" size={theme.size.iconDefault} />
+          </Pressable>
+        </View>
 
         {profileLoading && !activeProfile ? (
           <ActivityIndicator color={theme.color.action.primary} style={styles.loading} />
@@ -671,22 +783,6 @@ export function ProfileScreen({
               <NearbyPlayers players={nearbyPlayers} />
             ) : null}
 
-            <View style={styles.accountSection}>
-              <Pressable
-                accessibilityLabel="Delete profile"
-                accessibilityRole="button"
-                disabled={profileBusy}
-                onPress={confirmDeactivatePlayer}
-                style={({ pressed }) => [
-                  styles.deleteProfileButton,
-                  pressed ? styles.deleteProfileButtonPressed : null
-                ]}
-              >
-                <Text style={[styles.deleteProfileText, profileBusy ? styles.deleteProfileTextDisabled : null]}>
-                  {profileBusy ? "Deleting..." : "Delete profile"}
-                </Text>
-              </Pressable>
-            </View>
           </>
         ) : null}
 
@@ -696,6 +792,98 @@ export function ProfileScreen({
           </Text>
         ) : null}
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setSettingsOpen(false)}
+        transparent
+        visible={settingsOpen}
+      >
+        <View
+          style={[
+            styles.settingsBackdrop,
+            {
+              paddingBottom: insets.bottom + theme.space[20],
+              paddingTop: insets.top + theme.space[20]
+            }
+          ]}
+        >
+          <Pressable
+            accessibilityLabel="Close settings"
+            accessibilityRole="button"
+            onPress={() => setSettingsOpen(false)}
+            style={styles.settingsTint}
+          />
+          <View accessibilityViewIsModal style={styles.settingsDialog}>
+            <View style={styles.moreSettingsHeader}>
+              <Text accessibilityRole="header" style={styles.moreSettingsTitle}>
+                Settings
+              </Text>
+              <ActionButton label="Close" onPress={() => setSettingsOpen(false)} variant="text" />
+            </View>
+
+            <View style={styles.moreSettingsList}>
+              {moreSettingsLinks.map((link, index) => (
+                <Pressable
+                  accessibilityLabel={link.label}
+                  accessibilityRole="link"
+                  key={link.url}
+                  onPress={() => void openMoreSettingsLink(link.url)}
+                  style={({ pressed }) => [
+                    styles.moreSettingsLink,
+                    index < moreSettingsLinks.length - 1 ? styles.moreSettingsLinkBorder : null,
+                    pressed ? styles.moreSettingsLinkPressed : null
+                  ]}
+                >
+                  <Text style={styles.moreSettingsLinkText}>{link.label}</Text>
+                  <View style={styles.chevron}>
+                    <RallyIcon color={theme.color.text.secondary} name="back" size={theme.size.iconCompact} />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+
+            {activeProfile ? (
+              <Pressable
+                accessibilityLabel="Delete profile"
+                accessibilityRole="button"
+                disabled={profileBusy}
+                onPress={confirmDeactivatePlayer}
+                style={({ pressed }) => [
+                  styles.settingsDeleteButton,
+                  pressed ? styles.settingsDeleteButtonPressed : null
+                ]}
+              >
+                <Text style={[styles.deleteProfileText, profileBusy ? styles.deleteProfileTextDisabled : null]}>
+                  {profileBusy ? "Deleting..." : "Delete profile"}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {session ? (
+              <Pressable
+                accessibilityLabel="Delete account"
+                accessibilityRole="button"
+                disabled={accountDeletionBusy}
+                onPress={confirmDeleteAccount}
+                style={({ pressed }) => [
+                  styles.settingsDeleteButton,
+                  pressed ? styles.settingsDeleteButtonPressed : null
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.deleteAccountText,
+                    accountDeletionBusy ? styles.deleteProfileTextDisabled : null
+                  ]}
+                >
+                  {accountDeletionBusy ? "Deleting account..." : "Delete account"}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         animationType="fade"
@@ -993,9 +1181,6 @@ const nearbyAvatarSize = 80;
 const cameraBadgeSize = 40;
 
 const styles = StyleSheet.create({
-  accountSection: {
-    marginTop: theme.space[40]
-  },
   avatarButton: {
     height: profileAvatarSize + theme.space[8],
     width: profileAvatarSize + theme.space[8]
@@ -1029,20 +1214,13 @@ const styles = StyleSheet.create({
     width: cameraBadgeSize,
     ...theme.shadow.card
   },
-  deleteProfileButton: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    justifyContent: "center",
-    marginLeft: -theme.space[12],
-    minHeight: theme.size.targetMinimum,
-    paddingHorizontal: theme.space[12]
-  },
-  deleteProfileButtonPressed: {
-    opacity: 0.55
-  },
   deleteProfileText: {
-    ...theme.type.bodySecondary,
+    ...theme.type.bodyDefault,
     color: theme.color.text.secondary
+  },
+  deleteAccountText: {
+    ...theme.type.labelAction,
+    color: theme.color.feedback.error
   },
   deleteProfileTextDisabled: {
     opacity: 0.55
@@ -1101,6 +1279,41 @@ const styles = StyleSheet.create({
   },
   matchesStatPressed: {
     backgroundColor: "rgba(255, 253, 248, 0.35)"
+  },
+  moreSettingsHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  moreSettingsLink: {
+    alignItems: "center",
+    backgroundColor: theme.color.surface.card,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: theme.size.controlMinimumHeight,
+    paddingHorizontal: theme.space[16]
+  },
+  moreSettingsLinkBorder: {
+    borderBottomColor: theme.color.border.subtle,
+    borderBottomWidth: theme.border.quiet
+  },
+  moreSettingsLinkPressed: {
+    backgroundColor: theme.color.surface.info
+  },
+  moreSettingsLinkText: {
+    ...theme.type.bodyDefault,
+    color: theme.color.text.primary
+  },
+  moreSettingsList: {
+    borderColor: theme.color.border.subtle,
+    borderRadius: theme.radius.card,
+    borderWidth: theme.border.quiet,
+    marginTop: theme.space[20],
+    overflow: "hidden"
+  },
+  moreSettingsTitle: {
+    ...theme.type.headingPage,
+    color: theme.color.text.primary
   },
   nameEditorActions: {
     alignItems: "center",
@@ -1206,6 +1419,11 @@ const styles = StyleSheet.create({
     ...theme.type.headingPage,
     color: theme.color.text.primary
   },
+  pageHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
   pencilButton: {
     alignItems: "center",
     height: theme.size.targetMinimum,
@@ -1229,6 +1447,45 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surface.canvas,
     flexGrow: 1,
     paddingHorizontal: theme.layout.screenInset
+  },
+  settingsBackdrop: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: theme.layout.screenInset
+  },
+  settingsButton: {
+    alignItems: "center",
+    borderRadius: theme.radius.pill,
+    height: theme.size.targetMinimum,
+    justifyContent: "center",
+    width: theme.size.targetMinimum
+  },
+  settingsDeleteButton: {
+    alignItems: "center",
+    borderColor: theme.color.border.subtle,
+    borderRadius: theme.radius.control,
+    borderWidth: theme.border.quiet,
+    justifyContent: "center",
+    marginTop: theme.space[20],
+    minHeight: theme.size.controlMinimumHeight
+  },
+  settingsDeleteButtonPressed: {
+    backgroundColor: theme.color.surface.info
+  },
+  settingsDialog: {
+    ...theme.shadow.card,
+    backgroundColor: theme.color.surface.canvas,
+    borderColor: theme.color.border.subtle,
+    borderRadius: theme.radius.card,
+    borderWidth: theme.border.quiet,
+    maxWidth: 480,
+    padding: theme.space[20],
+    width: "100%"
+  },
+  settingsTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(34, 40, 58, 0.45)"
   },
   sectionTitle: {
     ...theme.type.headingSection,

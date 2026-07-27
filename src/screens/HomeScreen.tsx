@@ -6,6 +6,7 @@ import QRCode from "react-native-qrcode-svg";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -57,6 +58,7 @@ import {
   type LocalGuestLeagueProfile
 } from "../lib/localGuestProfile";
 import { isMatchFlowApiConfigured, sendLeagueQrEmail } from "../lib/matchFlowApi";
+import { publicProfileImageUrl } from "../lib/profileImages";
 
 type HomeScreenProps = {
   activeQueueProfile: LeagueQueueProfile | null;
@@ -1544,66 +1546,80 @@ export function HomeScreen({
       </Modal>
       <Modal animationType="fade" transparent visible={Boolean(joinLeague)} onRequestClose={() => setJoinLeague(null)}>
         <View style={styles.modalBackdrop}>
-          <ScrollView contentContainerStyle={styles.joinDialog} keyboardShouldPersistTaps="handled">
-            <Text style={styles.sectionTitle}>Join {joinLeague?.name}</Text>
-            <Text style={styles.helpText}>Enter your first and last name. If your name is already in this league, choose it from the list.</Text>
-            <TextInput
-              accessibilityLabel="First and last name"
-              autoCapitalize="words"
-              onChangeText={(value) => {
-                setJoinName(value);
-                setSelectedPlayerId(null);
-              }}
-              placeholder="First and last name"
-              placeholderTextColor={theme.color.text.secondary}
-              style={styles.input}
-              value={joinName}
-            />
-            {joinMatches.length > 0 ? (
-              <View style={styles.matchList}>
-                {joinMatches.map((match) => (
-                  <Pressable
-                    accessibilityLabel={`Use ${match.display_name}`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: selectedPlayerId === match.id }}
-                    key={match.id}
-                    onPress={() => {
-                      setSelectedPlayerId(match.id);
-                      setJoinName(match.display_name);
-                    }}
-                    style={({ pressed }) => [
-                      styles.nameMatchRow,
-                      selectedPlayerId === match.id ? styles.nameMatchSelected : null,
-                      pressed ? styles.rowPressed : null
-                    ]}
-                  >
-                    <View style={styles.avatar}>
-                      {match.profile_image_path ? (
-                        <Text style={styles.avatarImageText}>Photo</Text>
-                      ) : (
-                        <Text style={styles.avatarText}>{initialsFor(match.display_name)}</Text>
-                      )}
-                    </View>
-                    <View style={styles.leagueText}>
-                      <Text style={styles.memberName}>{match.display_name}</Text>
-                      {match.profile_image_path ? <Text style={styles.leagueMeta}>Profile photo</Text> : null}
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            {exactJoinNameMatches.length > 0 && !selectedPlayerId ? (
-              <Text style={styles.helpText}>That name already exists. Choose a match above or add another person with that name.</Text>
-            ) : null}
-            {joinError ? <Text style={styles.errorText}>{joinError}</Text> : null}
-            {loading ? <ActivityIndicator color={theme.color.action.primary} /> : null}
-            <View style={styles.bottomActions}>
-              <ActionButton label="Cancel" onPress={() => setJoinLeague(null)} variant="text" />
-              <ActionButton
-                disabled={loading || joinName.trim().split(/\s+/).filter(Boolean).length < 2}
-                label={selectedPlayerId ? "Join queue" : exactJoinNameMatches.length > 0 ? "Add another" : "Join queue"}
-                onPress={() => void submitJoinName()}
+          <ScrollView
+            contentContainerStyle={[
+              styles.joinDialogScrollContent,
+              {
+                paddingBottom: insets.bottom + theme.layout.screenInset,
+                paddingTop: insets.top + theme.layout.screenInset
+              }
+            ]}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.joinDialog}>
+              <Text style={styles.sectionTitle}>Join {joinLeague?.name}</Text>
+              <Text style={styles.helpText}>Enter your first and last name. If your name is already in this league, choose it from the list.</Text>
+              <TextInput
+                accessibilityLabel="First and last name"
+                autoCapitalize="words"
+                onChangeText={(value) => {
+                  setJoinName(value);
+                  setSelectedPlayerId(null);
+                }}
+                placeholder="First and last name"
+                placeholderTextColor={theme.color.text.secondary}
+                style={styles.input}
+                value={joinName}
               />
+              {joinMatches.length > 0 ? (
+                <View style={styles.matchList}>
+                  {joinMatches.map((match) => {
+                    const avatarUrl = match.profile_image_path
+                      ? publicProfileImageUrl(match.profile_image_path)
+                      : null;
+
+                    return (
+                      <Pressable
+                        accessibilityLabel={`Use ${match.display_name}`}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: selectedPlayerId === match.id }}
+                        key={match.id}
+                        onPress={() => {
+                          setSelectedPlayerId(match.id);
+                          setJoinName(match.display_name);
+                        }}
+                        style={({ pressed }) => [
+                          styles.nameMatchRow,
+                          selectedPlayerId === match.id ? styles.nameMatchSelected : null,
+                          pressed ? styles.rowPressed : null
+                        ]}
+                      >
+                        <View style={styles.avatar}>
+                          {avatarUrl ? (
+                            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                          ) : (
+                            <Text style={styles.avatarText}>{initialsFor(match.display_name)}</Text>
+                          )}
+                        </View>
+                        <View style={styles.leagueText}>
+                          <Text style={styles.memberName}>{match.display_name}</Text>
+                          {match.profile_image_path ? <Text style={styles.leagueMeta}>Profile photo</Text> : null}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+              {joinError ? <Text style={styles.errorText}>{joinError}</Text> : null}
+              {loading ? <ActivityIndicator color={theme.color.action.primary} /> : null}
+              <View style={styles.bottomActions}>
+                <ActionButton label="Cancel" onPress={() => setJoinLeague(null)} variant="text" />
+                <ActionButton
+                  disabled={loading || joinName.trim().split(/\s+/).filter(Boolean).length < 2}
+                  label={selectedPlayerId ? "Join queue" : exactJoinNameMatches.length > 0 ? "Add another" : "Join queue"}
+                  onPress={() => void submitJoinName()}
+                />
+              </View>
             </View>
           </ScrollView>
         </View>
@@ -1667,13 +1683,12 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     height: theme.size.avatarDefault,
     justifyContent: "center",
+    overflow: "hidden",
     width: theme.size.avatarDefault
   },
-  avatarImageText: {
-    ...theme.type.bodySecondary,
-    color: theme.color.text.selected,
-    fontFamily: theme.font.interfaceSemibold,
-    fontWeight: "600"
+  avatarImage: {
+    height: "100%",
+    width: "100%"
   },
   avatarText: {
     ...theme.type.bodySecondary,
@@ -1795,8 +1810,12 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.card,
     borderWidth: theme.border.quiet,
     gap: theme.layout.stackDefault,
-    margin: theme.layout.screenInset,
     padding: theme.layout.cardPadding
+  },
+  joinDialogScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: theme.layout.screenInset
   },
   leagueCard: {
     backgroundColor: theme.color.surface.card,

@@ -22,6 +22,38 @@ def test_health_reports_service_metadata():
     assert "algorithm_version" in response.json()
 
 
+def test_account_deletion_requires_bearer_token():
+    response = client.post("/account/deletion")
+
+    assert response.status_code == 401
+
+
+def test_account_deletion_schedules_authenticated_user(monkeypatch):
+    class FakeGateway:
+        def __init__(self, settings: Settings) -> None:
+            self.settings = settings
+
+        async def request_account_deletion(self, access_token):
+            assert access_token == "user-token"
+            return {
+                "scheduled": True,
+                "deletion_scheduled_at": "2026-08-25T12:00:00Z",
+            }
+
+    monkeypatch.setattr(main_module, "SupabaseGateway", FakeGateway)
+
+    response = client.post(
+        "/account/deletion",
+        headers={"Authorization": "Bearer user-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "scheduled": True,
+        "deletion_scheduled_at": "2026-08-25T12:00:00Z",
+    }
+
+
 def test_preview_endpoint_returns_one_disjoint_match_per_court(monkeypatch):
     monkeypatch.setattr(recommendation_module, "_load_cp_model", lambda: None)
 

@@ -59,6 +59,14 @@ export async function clearActiveLocalPlayerProfile() {
   await AsyncStorage.removeItem(activePlayerProfileKey);
 }
 
+export async function clearAllLocalPlayerData() {
+  await AsyncStorage.multiRemove([
+    activePlayerProfileKey,
+    legacyGuestProfilesKey,
+    playedLeaguesKey
+  ]);
+}
+
 export async function getLocalPlayedLeagues() {
   await migrateLegacyGuestProfiles();
 

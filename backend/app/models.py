@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -161,6 +162,11 @@ class SendLeagueQrEmailRequest(BaseModel):
 
 class SendLeagueQrEmailResponse(BaseModel):
     sent: bool
+
+
+class AccountDeletionResponse(BaseModel):
+    scheduled: bool
+    deletion_scheduled_at: datetime
 
 
 class SupabaseRpcError(BaseModel):
