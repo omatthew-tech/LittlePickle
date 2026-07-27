@@ -54,6 +54,41 @@ export function publicProfileImageUrl(path: string) {
   return supabase.storage.from(profilePicturesBucket).getPublicUrl(path).data.publicUrl;
 }
 
+export async function getLatestUploadedProfileImagePath() {
+  if (!supabase) {
+    return null;
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw sessionError;
+  }
+
+  const userId = sessionData.session?.user.id;
+
+  if (!userId) {
+    return null;
+  }
+
+  const { data: files, error: listError } = await supabase.storage
+    .from(profilePicturesBucket)
+    .list(userId, {
+      limit: 20,
+      sortBy: {
+        column: "name",
+        order: "desc"
+      }
+    });
+
+  if (listError) {
+    throw listError;
+  }
+
+  const latestAvatar = files.find((file) => file.name.startsWith("avatar-"));
+  return latestAvatar ? `${userId}/${latestAvatar.name}` : null;
+}
+
 function extensionForContentType(contentType: UploadProfileImageInput["contentType"]) {
   switch (contentType) {
     case "image/jpeg":

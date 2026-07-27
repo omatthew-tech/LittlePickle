@@ -39,6 +39,7 @@ import {
   searchLeaguePlayerNames,
   searchOrganizations,
   setOrganizationScoreMode,
+  updateMyProfile,
   updateOrganizationPlayer,
   type LeagueCodeResult,
   type LeaguePlayerNameMatch,
@@ -230,8 +231,8 @@ export function HomeScreen({
         }
 
         const savedProfile = await saveLocalGuestLeagueProfile({
-          avatarPath: currentPlayer.profile_image_path ?? profile.avatarPath ?? null,
-          displayName: currentPlayer.name,
+          avatarPath: profile.avatarPath ?? currentPlayer.profile_image_path ?? null,
+          displayName: profile.displayName,
           leagueId: profile.leagueId,
           leagueName: profile.leagueName,
           playerId: profile.playerId,
@@ -397,40 +398,63 @@ export function HomeScreen({
       return;
     }
 
-    const activeProfile = await getActiveLocalPlayerProfile();
+    const [activeProfile, accountProfile] = await Promise.all([
+      getActiveLocalPlayerProfile(),
+      session ? readAccountProfile() : Promise.resolve(null)
+    ]);
+    const accountDisplayName = accountProfile?.display_name.trim() ?? "";
+    const displayName =
+      activeProfile?.displayName ??
+      (accountDisplayName && normalizedDisplayName(accountDisplayName) !== "player"
+        ? accountDisplayName
+        : "");
+    const savedLeague = localLeagues.find((saved) => saved.leagueId === league.id);
+    const isKnownLeague =
+      Boolean(savedLeague) || organizations.some((organization) => organization.id === league.id);
 
-    if (activeProfile) {
-      setJoinLeague(league);
-      setJoinName(activeProfile.displayName);
-      setJoinMatches([]);
-      setSelectedPlayerId(null);
-      setJoinError(null);
+    if (isKnownLeague && displayName) {
+      const knownPlayerId =
+        savedLeague?.playerId ??
+        (activeProfile?.leagueId === league.id ? activeProfile.playerId : null) ??
+        (await findMatchingLeaguePlayerId(
+          league.id,
+          displayName,
+          activeProfile?.avatarPath ?? accountProfile?.avatar_path ?? null
+        ));
+
+      await joinQueue({
+        displayName,
+        league,
+        playerId: knownPlayerId
+      });
       return;
     }
 
-    if (session) {
-      try {
-        const profile = await getMyProfile();
-        const displayName = profile.display_name.trim();
+    openJoinDialog(league, displayName);
+  }
 
-        if (displayName && displayName.toLowerCase() !== "player") {
-          await joinQueue({
-            displayName,
-            league,
-            playerId: null
-          });
-          return;
-        }
-      } catch {
-        // Fall through to the name prompt.
-      }
-    }
-
+  function openJoinDialog(league: LeagueCodeResult, displayName: string) {
     setJoinLeague(league);
-    setJoinName("");
+    setJoinName(displayName);
     setJoinMatches([]);
     setSelectedPlayerId(null);
     setJoinError(null);
+  }
+
+  async function findMatchingLeaguePlayerId(
+    leagueId: string,
+    displayName: string,
+    avatarPath: string | null
+  ) {
+    const matches = await searchLeaguePlayerNames(leagueId, displayName);
+    const exactMatches = matches.filter(
+      (match) => normalizedDisplayName(match.display_name) === normalizedDisplayName(displayName)
+    );
+    const avatarMatch = avatarPath
+      ? exactMatches.find((match) => match.profile_image_path === avatarPath)
+      : null;
+
+    return avatarMatch?.id ?? exactMatches[0]?.id ?? null;
   }
 
   async function joinQueue({
@@ -457,22 +481,43 @@ export function HomeScreen({
         await ensureAnonymousSession();
       }
 
+      const activeProfile = await getActiveLocalPlayerProfile();
+      const accountProfile = await readAccountProfile();
+      const existingIdentityDisplayName =
+        activeProfile?.displayName ??
+        (accountProfile && normalizedDisplayName(accountProfile.display_name) !== "player"
+          ? accountProfile.display_name
+          : null);
+      const reusingActiveIdentity =
+        existingIdentityDisplayName !== null &&
+        normalizedDisplayName(existingIdentityDisplayName) === normalizedDisplayName(displayName);
+      const profileImagePath = reusingActiveIdentity
+        ? activeProfile?.avatarPath ?? accountProfile?.avatar_path ?? null
+        : null;
       const joined = await joinLeagueQueue({
         allowDuplicateName,
         displayName,
         organizationId: league.id,
-        playerId
+        playerId,
+        profileImagePath
       });
+      const identityDisplayName = reusingActiveIdentity
+        ? existingIdentityDisplayName
+        : joined.player.display_name;
+      const identityAvatarPath = reusingActiveIdentity
+        ? profileImagePath ?? joined.player.profile_image_path
+        : joined.player.profile_image_path;
 
       const savedProfile = await saveLocalGuestLeagueProfile({
-        avatarPath: joined.player.profile_image_path,
-        displayName: joined.player.display_name,
+        avatarPath: identityAvatarPath,
+        displayName: identityDisplayName,
         leagueId: joined.organization.id,
         leagueName: joined.organization.name,
         playerId: joined.player.id,
         rating: joined.player.rating,
         sessionId: joined.session_id
       });
+      await syncAccountProfile(identityDisplayName, identityAvatarPath);
       setJoinLeague(null);
       setJoinName("");
       setSelectedPlayerId(null);
@@ -615,7 +660,7 @@ export function HomeScreen({
 
     try {
       const activeProfile = await getActiveLocalPlayerProfile();
-      const matchingProfile = activeProfile?.leagueId === league.leagueId ? activeProfile : null;
+      const savedLeague = localLeagues.find((saved) => saved.leagueId === league.leagueId);
       const sessionId = await readOpenQueueSession(league.leagueId);
 
       await saveLocalPlayedLeague({
@@ -631,15 +676,17 @@ export function HomeScreen({
       setJoinName("");
       setSelectedPlayerId(null);
       onQueueProfileChanged({
-        avatarPath: matchingProfile?.avatarPath ?? null,
-        displayName: matchingProfile?.displayName ?? "Player",
+        avatarPath: activeProfile?.avatarPath ?? null,
+        displayName: activeProfile?.displayName ?? "Player",
         leagueId: league.leagueId,
         leagueLocationText: league.locationText ?? null,
         leagueName: league.leagueName,
         leagueNumberOfCourts: league.numberOfCourts ?? null,
         leagueSlug: league.slug ?? null,
-        playerId: matchingProfile?.playerId ?? "",
-        rating: matchingProfile?.rating ?? null,
+        playerId:
+          savedLeague?.playerId ??
+          (activeProfile?.leagueId === league.leagueId ? activeProfile.playerId : ""),
+        rating: activeProfile?.rating ?? null,
         readOnly: true,
         sessionId
       });
@@ -674,21 +721,32 @@ export function HomeScreen({
       await ensureAnonymousSession();
     }
 
+    const reusingActiveIdentity =
+      normalizedDisplayName(profile.displayName) === normalizedDisplayName(displayName);
+    const profileImagePath = reusingActiveIdentity ? profile.avatarPath ?? null : null;
     const joined = await joinLeagueQueue({
       displayName,
       organizationId: profile.leagueId,
-      playerId
+      playerId,
+      profileImagePath
     });
+    const identityDisplayName = reusingActiveIdentity
+      ? profile.displayName
+      : joined.player.display_name;
+    const identityAvatarPath = reusingActiveIdentity
+      ? profile.avatarPath ?? joined.player.profile_image_path
+      : joined.player.profile_image_path;
 
     const savedProfile = await saveLocalGuestLeagueProfile({
-      avatarPath: joined.player.profile_image_path,
-      displayName: joined.player.display_name,
+      avatarPath: identityAvatarPath,
+      displayName: identityDisplayName,
       leagueId: joined.organization.id,
       leagueName: joined.organization.name,
       playerId: joined.player.id,
       rating: joined.player.rating,
       sessionId: joined.session_id
     });
+    await syncAccountProfile(identityDisplayName, identityAvatarPath);
 
     onQueueProfileChanged({
       ...profile,
@@ -701,6 +759,22 @@ export function HomeScreen({
     onSessionSelected(joined.session_id);
     await loadHomeData();
     return true;
+  }
+
+  async function syncAccountProfile(displayName: string, avatarPath: string | null) {
+    try {
+      await updateMyProfile(displayName, avatarPath);
+    } catch {
+      // The local active identity still remains stable if account-profile sync is temporarily unavailable.
+    }
+  }
+
+  async function readAccountProfile() {
+    try {
+      return await getMyProfile();
+    } catch {
+      return null;
+    }
   }
 
   async function readOpenQueueSession(organizationId: string) {
@@ -1670,6 +1744,10 @@ function initialsFor(name: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
+}
+
+function normalizedDisplayName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 const styles = StyleSheet.create({

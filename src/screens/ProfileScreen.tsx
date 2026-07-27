@@ -27,10 +27,12 @@ import { theme } from "../design/theme";
 import { useAuth } from "../lib/auth";
 import {
   deactivatePlayer,
+  getMyProfile,
   getPlayerCompletedMatches,
   getPlayerProfileOverview,
   searchLeaguePlayerNames,
   updateCompletedMatchResult,
+  updateMyProfile,
   updatePlayerDisplayName,
   updatePlayerProfileImage,
   type LeaguePlayerNameMatch,
@@ -47,7 +49,11 @@ import {
 } from "../lib/localGuestProfile";
 import { activeMatchTeams } from "../lib/matchRecommendationMapping";
 import { requestAccountDeletion } from "../lib/matchFlowApi";
-import { publicProfileImageUrl, uploadProfileImage } from "../lib/profileImages";
+import {
+  getLatestUploadedProfileImagePath,
+  publicProfileImageUrl,
+  uploadProfileImage
+} from "../lib/profileImages";
 import type { CompletedMatch, MatchResultInput } from "../types/matchFlow";
 
 type SupportedProfileImageType = "image/jpeg" | "image/png" | "image/webp";
@@ -99,8 +105,8 @@ export function ProfileScreen({
   const [switchQuery, setSwitchQuery] = useState("");
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
-  const profileDisplayName = overview?.player.display_name ?? activeProfile?.displayName ?? "";
-  const profileAvatarPath = overview?.player.profile_image_path ?? activeProfile?.avatarPath ?? null;
+  const profileDisplayName = activeProfile?.displayName ?? overview?.player.display_name ?? "";
+  const profileAvatarPath = activeProfile?.avatarPath ?? overview?.player.profile_image_path ?? null;
   const activeAvatarUrl = profileAvatarPath ? publicProfileImageUrl(profileAvatarPath) : null;
   const nearbyPlayers = overview?.nearby_players ?? [];
   const normalizedNameDraft = normalizeDisplayName(nameDraft);
@@ -184,18 +190,50 @@ export function ProfileScreen({
     setErrorMessage(null);
 
     try {
-      const nextOverview = await getPlayerProfileOverview(profile.leagueId, profile.playerId);
+      const [nextOverview, accountProfile] = await Promise.all([
+        getPlayerProfileOverview(profile.leagueId, profile.playerId),
+        getMyProfile()
+      ]);
       setOverview(nextOverview);
 
+      const accountDisplayName = normalizeDisplayName(accountProfile.display_name);
+      const profileDisplayName = normalizeDisplayName(profile.displayName);
+      const identityDisplayName =
+        profileDisplayName && profileDisplayName.toLowerCase() !== "player"
+          ? profileDisplayName
+          : accountDisplayName && accountDisplayName.toLowerCase() !== "player"
+            ? accountDisplayName
+            : nextOverview.player.display_name;
+      let identityAvatarPath =
+        profile.avatarPath ??
+        accountProfile.avatar_path ??
+        nextOverview.player.profile_image_path;
+
+      if (!identityAvatarPath) {
+        try {
+          identityAvatarPath = await getLatestUploadedProfileImagePath();
+        } catch {
+          // Profile details remain usable if an older uploaded image cannot be recovered.
+        }
+      }
+
+      const accountNeedsSync =
+        accountProfile.display_name !== identityDisplayName ||
+        accountProfile.avatar_path !== identityAvatarPath;
+
+      if (accountNeedsSync) {
+        await updateMyProfile(identityDisplayName, identityAvatarPath);
+      }
+
       const profileChanged =
-        profile.avatarPath !== nextOverview.player.profile_image_path ||
-        profile.displayName !== nextOverview.player.display_name ||
+        profile.avatarPath !== identityAvatarPath ||
+        profile.displayName !== identityDisplayName ||
         profile.rating !== nextOverview.player.rating;
 
       if (profileChanged) {
         const syncedProfile = await saveActiveLocalPlayerProfile({
-          avatarPath: nextOverview.player.profile_image_path,
-          displayName: nextOverview.player.display_name,
+          avatarPath: identityAvatarPath,
+          displayName: identityDisplayName,
           leagueId: profile.leagueId,
           leagueName: profile.leagueName,
           playerId: profile.playerId,
@@ -264,9 +302,13 @@ export function ProfileScreen({
         uri: result.assets[0].uri
       });
       const updatedPlayer = await updatePlayerProfileImage(activeProfile.playerId, upload.path);
+      const accountProfile = await updateMyProfile(
+        profileDisplayName || updatedPlayer.display_name,
+        upload.path
+      );
       const updatedProfile = await saveActiveLocalPlayerProfile({
-        avatarPath: updatedPlayer.profile_image_path,
-        displayName: updatedPlayer.display_name,
+        avatarPath: accountProfile.avatar_path ?? updatedPlayer.profile_image_path,
+        displayName: accountProfile.display_name,
         leagueId: activeProfile.leagueId,
         leagueName: activeProfile.leagueName,
         playerId: activeProfile.playerId,
@@ -328,9 +370,17 @@ export function ProfileScreen({
       await ensureAnonymousSession();
 
       const updatedPlayer = await updatePlayerDisplayName(activeProfile.playerId, normalizedNameDraft);
+      const accountProfile = await updateMyProfile(
+        normalizedNameDraft,
+        activeProfile.avatarPath ?? null
+      );
       const updatedProfile = await saveActiveLocalPlayerProfile({
-        avatarPath: updatedPlayer.profile_image_path ?? activeProfile.avatarPath ?? null,
-        displayName: updatedPlayer.display_name,
+        avatarPath:
+          accountProfile.avatar_path ??
+          activeProfile.avatarPath ??
+          updatedPlayer.profile_image_path ??
+          null,
+        displayName: accountProfile.display_name,
         leagueId: activeProfile.leagueId,
         leagueName: activeProfile.leagueName,
         playerId: activeProfile.playerId,
@@ -382,9 +432,13 @@ export function ProfileScreen({
     setSwitchError(null);
 
     try {
+      const accountProfile = await updateMyProfile(
+        player.display_name,
+        player.profile_image_path
+      );
       const updatedProfile = await saveActiveLocalPlayerProfile({
-        avatarPath: player.profile_image_path,
-        displayName: player.display_name,
+        avatarPath: accountProfile.avatar_path ?? player.profile_image_path,
+        displayName: accountProfile.display_name,
         leagueId: activeProfile.leagueId,
         leagueName: activeProfile.leagueName,
         playerId: player.id,

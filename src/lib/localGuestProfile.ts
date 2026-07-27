@@ -9,6 +9,7 @@ export type LocalPlayedLeague = {
   leagueName: string;
   locationText?: string | null;
   numberOfCourts?: number | null;
+  playerId?: string | null;
   sessionId?: string | null;
   slug?: string | null;
   updatedAt: string;
@@ -49,6 +50,7 @@ export async function saveActiveLocalPlayerProfile(profile: SavedPlayerProfileIn
   await saveLocalPlayedLeague({
     leagueId: profile.leagueId,
     leagueName: profile.leagueName,
+    playerId: profile.playerId,
     sessionId: profile.sessionId ?? null
   });
 
@@ -75,11 +77,14 @@ export async function getLocalPlayedLeagues() {
 }
 
 export async function saveLocalPlayedLeague(league: SavedLeagueInput) {
+  const leagues = await getLocalPlayedLeagues();
+  const previousLeague = leagues.find((previous) => previous.leagueId === league.leagueId);
   const nextLeague: LocalPlayedLeague = {
+    ...previousLeague,
     ...league,
+    playerId: league.playerId ?? previousLeague?.playerId ?? null,
     updatedAt: new Date().toISOString()
   };
-  const leagues = await getLocalPlayedLeagues();
   const nextLeagues = mergePlayedLeagues([
     nextLeague,
     ...leagues.filter((previousLeague) => previousLeague.leagueId !== league.leagueId)
@@ -174,6 +179,7 @@ function normalizePlayedLeague(value: unknown): LocalPlayedLeague | null {
     leagueName,
     locationText: nullableStringValue(value.locationText),
     numberOfCourts: nullableNumberValue(value.numberOfCourts),
+    playerId: nullableStringValue(value.playerId),
     sessionId: nullableStringValue(value.sessionId),
     slug: nullableStringValue(value.slug),
     updatedAt: stringValue(value.updatedAt) ?? new Date(0).toISOString()
@@ -210,6 +216,7 @@ function leagueFromLegacyProfile(profile: LocalPlayerProfile): LocalPlayedLeague
   return {
     leagueId: profile.leagueId,
     leagueName: profile.leagueName,
+    playerId: profile.playerId,
     sessionId: profile.sessionId ?? null,
     updatedAt: profile.updatedAt
   };
