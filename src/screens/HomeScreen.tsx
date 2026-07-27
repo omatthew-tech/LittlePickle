@@ -112,6 +112,7 @@ export function HomeScreen({
   const {
     configured,
     ensureAnonymousSession,
+    initializing,
     sendEmailOtp,
     session,
     verifyEmailOtp
@@ -126,6 +127,7 @@ export function HomeScreen({
   const [qrEmailStatus, setQrEmailStatus] = useState<QrEmailStatus>("idle");
   const [leagueQuery, setLeagueQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [homeDataLoaded, setHomeDataLoaded] = useState(false);
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
   const [localLeagues, setLocalLeagues] = useState<LocalPlayedLeague[]>([]);
   const [searchResults, setSearchResults] = useState<OrganizationSearchResult[]>([]);
@@ -162,6 +164,10 @@ export function HomeScreen({
   );
 
   const loadHomeData = useCallback(async () => {
+    if (initializing) {
+      return;
+    }
+
     setErrorMessage(null);
 
     try {
@@ -178,12 +184,14 @@ export function HomeScreen({
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not load leagues.");
+    } finally {
+      setHomeDataLoaded(true);
     }
-  }, [configured, session]);
+  }, [configured, initializing, session]);
 
   useEffect(() => {
     void loadHomeData();
-  }, [loadHomeData]);
+  }, [loadHomeData, queueAutoOpenKey]);
 
   useEffect(() => {
     onCreationFlowActiveChanged(createStep !== "home");
@@ -1139,9 +1147,13 @@ export function HomeScreen({
 
     return (
       <View style={styles.homeContent}>
-        <Text accessibilityRole="header" style={styles.homeTitle}>
-          {homeHeading}
-        </Text>
+        {homeDataLoaded ? (
+          <Text accessibilityRole="header" style={styles.homeTitle}>
+            {homeHeading}
+          </Text>
+        ) : (
+          <View style={styles.homeTitlePlaceholder} />
+        )}
         <View style={styles.entryStack}>
           <QRAction disabled={loading} label="Scan league QR" onPress={() => void beginScanner()} />
           <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.orSeparator}>
@@ -1788,6 +1800,9 @@ const styles = StyleSheet.create({
   homeTitle: {
     ...theme.type.headingBrand,
     color: theme.color.text.primary
+  },
+  homeTitlePlaceholder: {
+    height: theme.type.headingBrand.lineHeight
   },
   camera: {
     aspectRatio: 1,

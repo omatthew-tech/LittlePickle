@@ -80,7 +80,12 @@ function AppShell() {
     <SafeAreaProvider>
       <View style={styles.app}>
         <StatusBar backgroundColor={theme.color.surface.canvas} barStyle="dark-content" />
-        {activeDestination === "home" ? (
+        <View
+          accessibilityElementsHidden={activeDestination !== "home"}
+          importantForAccessibility={activeDestination === "home" ? "auto" : "no-hide-descendants"}
+          pointerEvents={activeDestination === "home" ? "auto" : "none"}
+          style={[styles.screen, activeDestination !== "home" ? styles.screenHidden : null]}
+        >
           <HomeScreen
             activeQueueProfile={activeQueueProfile}
             onCreationFlowActiveChanged={setCreationFlowActive}
@@ -90,7 +95,7 @@ function AppShell() {
             }}
             queueAutoOpenKey={homeVisitKey}
           />
-        ) : null}
+        </View>
         {activeDestination === "play" ? (
           <PlayScreen
             currentPlayerId={activeQueueProfile?.playerId ?? null}
@@ -116,5 +121,11 @@ const styles = StyleSheet.create({
   app: {
     backgroundColor: theme.color.surface.canvas,
     flex: 1
+  },
+  screen: {
+    flex: 1
+  },
+  screenHidden: {
+    display: "none"
   }
 });
