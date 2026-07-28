@@ -5,6 +5,7 @@ const activePlayerProfileKey = "littlepickle.activePlayerProfile.v1";
 const playedLeaguesKey = "littlepickle.playedLeagues.v1";
 
 export type LocalPlayedLeague = {
+  lastPlayedAt: string;
   leagueId: string;
   leagueName: string;
   locationText?: string | null;
@@ -31,7 +32,9 @@ export type LocalGuestLeagueProfile = LocalPlayerProfile & {
 };
 
 type SavedPlayerProfileInput = Omit<LocalPlayerProfile, "updatedAt">;
-type SavedLeagueInput = Omit<LocalPlayedLeague, "updatedAt">;
+type SavedLeagueInput = Omit<LocalPlayedLeague, "lastPlayedAt" | "updatedAt"> & {
+  lastPlayedAt?: string | null;
+};
 
 export async function getActiveLocalPlayerProfile() {
   await migrateLegacyGuestProfiles();
@@ -40,14 +43,19 @@ export async function getActiveLocalPlayerProfile() {
   return activeProfile ?? null;
 }
 
-export async function saveActiveLocalPlayerProfile(profile: SavedPlayerProfileInput) {
+export async function saveActiveLocalPlayerProfile(
+  profile: SavedPlayerProfileInput,
+  options: { markPlayed?: boolean } = {}
+) {
+  const savedAt = new Date().toISOString();
   const nextProfile: LocalPlayerProfile = {
     ...profile,
-    updatedAt: new Date().toISOString()
+    updatedAt: savedAt
   };
 
   await AsyncStorage.setItem(activePlayerProfileKey, JSON.stringify(nextProfile));
   await saveLocalPlayedLeague({
+    lastPlayedAt: options.markPlayed ? savedAt : undefined,
     leagueId: profile.leagueId,
     leagueName: profile.leagueName,
     playerId: profile.playerId,
@@ -82,6 +90,10 @@ export async function saveLocalPlayedLeague(league: SavedLeagueInput) {
   const nextLeague: LocalPlayedLeague = {
     ...previousLeague,
     ...league,
+    lastPlayedAt:
+      league.lastPlayedAt ??
+      previousLeague?.lastPlayedAt ??
+      new Date(0).toISOString(),
     playerId: league.playerId ?? previousLeague?.playerId ?? null,
     updatedAt: new Date().toISOString()
   };
@@ -110,7 +122,9 @@ export async function getLocalGuestLeagueProfile(leagueId: string) {
 }
 
 export async function saveLocalGuestLeagueProfile(profile: Omit<LocalGuestLeagueProfile, "updatedAt">) {
-  return (await saveActiveLocalPlayerProfile(profile)) as LocalGuestLeagueProfile;
+  return (await saveActiveLocalPlayerProfile(profile, {
+    markPlayed: true
+  })) as LocalGuestLeagueProfile;
 }
 
 async function getLegacyGuestLeagueProfiles() {
@@ -175,6 +189,10 @@ function normalizePlayedLeague(value: unknown): LocalPlayedLeague | null {
   }
 
   return {
+    lastPlayedAt:
+      stringValue(value.lastPlayedAt) ??
+      stringValue(value.updatedAt) ??
+      new Date(0).toISOString(),
     leagueId,
     leagueName,
     locationText: nullableStringValue(value.locationText),
@@ -214,6 +232,7 @@ function normalizePlayerProfile(value: unknown): LocalPlayerProfile | null {
 
 function leagueFromLegacyProfile(profile: LocalPlayerProfile): LocalPlayedLeague {
   return {
+    lastPlayedAt: profile.updatedAt,
     leagueId: profile.leagueId,
     leagueName: profile.leagueName,
     playerId: profile.playerId,
@@ -233,7 +252,10 @@ function mergePlayedLeagues(leagues: LocalPlayedLeague[]) {
     }
   }
 
-  return [...leaguesById.values()].sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+  return [...leaguesById.values()].sort((first, second) => {
+    const playedComparison = second.lastPlayedAt.localeCompare(first.lastPlayedAt);
+    return playedComparison || second.updatedAt.localeCompare(first.updatedAt);
+  });
 }
 
 function isLocalPlayedLeague(value: LocalPlayedLeague | null): value is LocalPlayedLeague {

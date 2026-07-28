@@ -147,13 +147,21 @@ export function HomeScreen({
 
   const visibleOrganizations = useMemo(() => {
     const normalizedQuery = leagueQuery.trim().toLowerCase();
+    const matchingOrganizations = normalizedQuery
+      ? organizations.filter((organization) =>
+          organization.name.toLowerCase().includes(normalizedQuery)
+        )
+      : organizations;
+    const lastPlayedByLeagueId = new Map(
+      localLeagues.map((league) => [league.leagueId, league.lastPlayedAt])
+    );
 
-    if (!normalizedQuery) {
-      return organizations;
-    }
-
-    return organizations.filter((organization) => organization.name.toLowerCase().includes(normalizedQuery));
-  }, [leagueQuery, organizations]);
+    return [...matchingOrganizations].sort((first, second) => {
+      const firstLastPlayedAt = lastPlayedByLeagueId.get(first.id) ?? "";
+      const secondLastPlayedAt = lastPlayedByLeagueId.get(second.id) ?? "";
+      return secondLastPlayedAt.localeCompare(firstLastPlayedAt);
+    });
+  }, [leagueQuery, localLeagues, organizations]);
 
   const exactJoinNameMatches = useMemo(
     () =>
@@ -645,7 +653,10 @@ export function HomeScreen({
   }
 
   async function viewQueueForOrganization(organization: OrganizationSummary) {
+    const savedLeague = localLeagues.find((league) => league.leagueId === organization.id);
+
     await viewQueueForSavedLeague({
+      lastPlayedAt: savedLeague?.lastPlayedAt ?? new Date(0).toISOString(),
       leagueId: organization.id,
       leagueName: organization.name,
       locationText: organization.location_text ?? null,
