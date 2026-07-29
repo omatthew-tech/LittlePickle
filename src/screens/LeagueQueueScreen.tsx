@@ -172,6 +172,10 @@ export function LeagueQueueScreen({
     setRosterError(null);
 
     try {
+      if (playerId === profile.playerId) {
+        return await updateCurrentPlayerQueueMembership(inSession);
+      }
+
       if (readOnly && inSession) {
         const player = players.find((candidate) => candidate.id === playerId);
 
@@ -218,30 +222,41 @@ export function LeagueQueueScreen({
     }
   }
 
-  async function handleQueueMembership() {
+  async function updateCurrentPlayerQueueMembership(nextInSession: boolean) {
     if (readOnly) {
-      setUpdatingMembership(true);
-      await onJoinQueue();
-      setUpdatingMembership(false);
-      return;
-    }
+      if (!nextInSession) {
+        return false;
+      }
 
-    const nextInSession = !isQueued;
+      setUpdatingMembership(true);
+
+      try {
+        await onJoinQueue();
+        return true;
+      } finally {
+        setUpdatingMembership(false);
+      }
+    }
 
     setUpdatingMembership(true);
     const updated = await setPlayerInExistingSession(profile.playerId, nextInSession);
     setUpdatingMembership(false);
 
     if (!updated) {
-      return;
+      return false;
     }
 
     if (nextInSession) {
       onQueueMembershipChanged();
-      return;
+      return true;
     }
 
     onLeftQueue();
+    return true;
+  }
+
+  async function handleQueueMembership() {
+    await updateCurrentPlayerQueueMembership(!isQueued);
   }
 
   return (
@@ -362,7 +377,7 @@ export function LeagueQueueScreen({
         addNewPlayerToSession={handleAddNewPlayer}
         currentPlayerId={profile.playerId}
         live={live}
-        loading={loading}
+        loading={loading || updatingMembership}
         players={players}
         readOnly={false}
         setPlayerInSession={handleRosterMembership}

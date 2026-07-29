@@ -151,7 +151,7 @@ Authorization: Bearer <supabase-access-token>
 
 Main flow:
 
-1. `POST /account/deletion` validates the bearer token, schedules permanent account deletion after 30 days, and immediately bans the Supabase Auth user. The retention worker removes account-owned profile images and the Auth user when deletion becomes due.
+1. `POST /account/deletion` validates the bearer token, leaves every league, schedules permanent account deletion after 30 days, and immediately bans the Supabase Auth user. The retention worker removes account-owned profile images and the Auth user when deletion becomes due.
 2. `POST /recommendations/{recommendation_id}/accept` creates an active match on the requested court or lowest open court.
 3. `POST /matches/{match_id}/complete` saves a mode-matched result, advances queue state, regenerates recommendations, stores the new batch in Supabase, and returns it. Send either `{"result_mode":"score","team_one_score":11,"team_two_score":7}` or `{"result_mode":"win_loss","winning_team":1}`.
 4. `POST /sessions/{session_id}/matches/custom` creates and completes a match for four selected current-session players without requiring a previously started match. It accepts the same discriminated result fields, then advances the queue and regenerates recommendations through the normal completion flow.
@@ -162,6 +162,7 @@ Supabase RPCs used by the Expo app:
 - `my_profile`
 - `update_my_profile`
 - `ensure_current_user_player`
+- `set_my_league_player`
 - `my_organizations`
 - `search_organizations`
 - `join_organization`
@@ -173,6 +174,7 @@ Supabase RPCs used by the Expo app:
 - `set_organization_member_role`
 - `create_player`
 - `update_organization_player`
+- `leave_my_league`
 - `create_play_session`
 - `organization_open_sessions`
 - `close_play_session`

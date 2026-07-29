@@ -106,6 +106,13 @@ export async function saveLocalPlayedLeague(league: SavedLeagueInput) {
   return nextLeague;
 }
 
+export async function removeLocalPlayedLeague(leagueId: string) {
+  const leagues = await getLocalPlayedLeagues();
+  const nextLeagues = leagues.filter((league) => league.leagueId !== leagueId);
+
+  await AsyncStorage.setItem(playedLeaguesKey, JSON.stringify(nextLeagues));
+}
+
 export async function getLocalGuestLeagueProfiles() {
   const activeProfile = await getActiveLocalPlayerProfile();
   return activeProfile?.sessionId ? [activeProfile as LocalGuestLeagueProfile] : [];

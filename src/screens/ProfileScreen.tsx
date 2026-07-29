@@ -26,17 +26,20 @@ import { SearchField } from "../components/SearchField";
 import { theme } from "../design/theme";
 import { useAuth } from "../lib/auth";
 import {
-  deactivatePlayer,
+  getMyOrganizations,
   getMyProfile,
   getPlayerCompletedMatches,
   getPlayerProfileOverview,
+  leaveLeague,
   searchLeaguePlayerNames,
+  setMyLeaguePlayer,
   updateCompletedMatchResult,
   updateMyProfile,
   updatePlayerDisplayName,
   updatePlayerProfileImage,
   type LeaguePlayerNameMatch,
   type NearbyPlayer,
+  type OrganizationSummary,
   type PlayerMatchHistoryResponse,
   type ProfileOverview
 } from "../lib/littlePickleData";
@@ -44,16 +47,14 @@ import {
   clearActiveLocalPlayerProfile,
   clearAllLocalPlayerData,
   getActiveLocalPlayerProfile,
+  getLocalPlayedLeagues,
+  removeLocalPlayedLeague,
   saveActiveLocalPlayerProfile,
   type LocalPlayerProfile
 } from "../lib/localGuestProfile";
 import { activeMatchTeams } from "../lib/matchRecommendationMapping";
 import { requestAccountDeletion } from "../lib/matchFlowApi";
-import {
-  getLatestUploadedProfileImagePath,
-  publicProfileImageUrl,
-  uploadProfileImage
-} from "../lib/profileImages";
+import { publicProfileImageUrl, uploadProfileImage } from "../lib/profileImages";
 import type { CompletedMatch, MatchResultInput } from "../types/matchFlow";
 
 type SupportedProfileImageType = "image/jpeg" | "image/png" | "image/webp";
@@ -74,13 +75,24 @@ const moreSettingsLinks = [
 ] as const;
 
 type ProfileScreenProps = {
+  onAccountDeleted?: () => void;
   onActiveProfileChanged?: (profile: LocalPlayerProfile) => void;
   onActiveProfileDeactivated?: () => void;
+  onLeagueLeft?: () => void;
+};
+
+type LeaveLeagueChoice = {
+  leagueId: string;
+  leagueName: string;
+  playerId: string | null;
+  role: OrganizationSummary["role"];
 };
 
 export function ProfileScreen({
+  onAccountDeleted,
   onActiveProfileChanged,
-  onActiveProfileDeactivated
+  onActiveProfileDeactivated,
+  onLeagueLeft
 }: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
   const { configured, ensureAnonymousSession, session, signOutLocally } = useAuth();
@@ -93,6 +105,11 @@ export function ProfileScreen({
   const [matchHistoryOpen, setMatchHistoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyEditMatchId, setHistoryEditMatchId] = useState<string | null>(null);
+  const [leaveLeagueChoices, setLeaveLeagueChoices] = useState<LeaveLeagueChoice[]>([]);
+  const [leaveLeagueError, setLeaveLeagueError] = useState<string | null>(null);
+  const [leaveLeagueLoading, setLeaveLeagueLoading] = useState(false);
+  const [leaveLeagueOpen, setLeaveLeagueOpen] = useState(false);
+  const [leavingLeagueId, setLeavingLeagueId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [nameEditError, setNameEditError] = useState<string | null>(null);
   const [nameEditorOpen, setNameEditorOpen] = useState(false);
@@ -192,7 +209,8 @@ export function ProfileScreen({
     try {
       const [nextOverview, accountProfile] = await Promise.all([
         getPlayerProfileOverview(profile.leagueId, profile.playerId),
-        getMyProfile()
+        getMyProfile(),
+        setMyLeaguePlayer(profile.leagueId, profile.playerId)
       ]);
       setOverview(nextOverview);
 
@@ -204,22 +222,11 @@ export function ProfileScreen({
           : accountDisplayName && accountDisplayName.toLowerCase() !== "player"
             ? accountDisplayName
             : nextOverview.player.display_name;
-      let identityAvatarPath =
-        profile.avatarPath ??
-        accountProfile.avatar_path ??
-        nextOverview.player.profile_image_path;
-
-      if (!identityAvatarPath) {
-        try {
-          identityAvatarPath = await getLatestUploadedProfileImagePath();
-        } catch {
-          // Profile details remain usable if an older uploaded image cannot be recovered.
-        }
-      }
+      const identityAvatarPath = nextOverview.player.profile_image_path;
 
       const accountNeedsSync =
         accountProfile.display_name !== identityDisplayName ||
-        accountProfile.avatar_path !== identityAvatarPath;
+        (identityAvatarPath !== null && accountProfile.avatar_path !== identityAvatarPath);
 
       if (accountNeedsSync) {
         await updateMyProfile(identityDisplayName, identityAvatarPath);
@@ -370,17 +377,13 @@ export function ProfileScreen({
       await ensureAnonymousSession();
 
       const updatedPlayer = await updatePlayerDisplayName(activeProfile.playerId, normalizedNameDraft);
-      const accountProfile = await updateMyProfile(
+      await updateMyProfile(
         normalizedNameDraft,
         activeProfile.avatarPath ?? null
       );
       const updatedProfile = await saveActiveLocalPlayerProfile({
-        avatarPath:
-          accountProfile.avatar_path ??
-          activeProfile.avatarPath ??
-          updatedPlayer.profile_image_path ??
-          null,
-        displayName: accountProfile.display_name,
+        avatarPath: updatedPlayer.profile_image_path,
+        displayName: updatedPlayer.display_name,
         leagueId: activeProfile.leagueId,
         leagueName: activeProfile.leagueName,
         playerId: activeProfile.playerId,
@@ -432,13 +435,14 @@ export function ProfileScreen({
     setSwitchError(null);
 
     try {
-      const accountProfile = await updateMyProfile(
+      await updateMyProfile(
         player.display_name,
         player.profile_image_path
       );
+      await setMyLeaguePlayer(activeProfile.leagueId, player.id);
       const updatedProfile = await saveActiveLocalPlayerProfile({
-        avatarPath: accountProfile.avatar_path ?? player.profile_image_path,
-        displayName: accountProfile.display_name,
+        avatarPath: player.profile_image_path,
+        displayName: player.display_name,
         leagueId: activeProfile.leagueId,
         leagueName: activeProfile.leagueName,
         playerId: player.id,
@@ -552,32 +556,8 @@ export function ProfileScreen({
     }
   }
 
-  function confirmDeactivatePlayer() {
-    if (!activeProfile || profileBusy) {
-      return;
-    }
-
-    Alert.alert(
-      "Delete profile?",
-      "This player profile will be immediately unavailable and will no longer be visible in the app. " +
-        "The player's information will be permanently deleted in 30 days unless support@joinlittlepickle.com " +
-        "or a league admin is notified.",
-      [
-        {
-          style: "cancel",
-          text: "Cancel"
-        },
-        {
-          onPress: () => void handleDeactivatePlayer(),
-          style: "destructive",
-          text: "Delete profile"
-        }
-      ]
-    );
-  }
-
-  async function handleDeactivatePlayer() {
-    if (!activeProfile) {
+  async function openLeaveLeaguePicker() {
+    if (!session || leaveLeagueLoading || leavingLeagueId) {
       return;
     }
 
@@ -586,23 +566,112 @@ export function ProfileScreen({
       return;
     }
 
-    setProfileBusy(true);
-    setErrorMessage(null);
+    setSettingsOpen(false);
+    setLeaveLeagueChoices([]);
+    setLeaveLeagueError(null);
+    setLeaveLeagueLoading(true);
+    setLeaveLeagueOpen(true);
 
     try {
       await ensureAnonymousSession();
-      await deactivatePlayer(activeProfile.playerId);
-      await clearActiveProfile();
-      Alert.alert(
-        "Player deactivated",
-        "The player is no longer available. Contact support@joinlittlepickle.com or a league admin within 30 days to restore it."
+      const [organizations, playedLeagues] = await Promise.all([
+        getMyOrganizations(),
+        getLocalPlayedLeagues()
+      ]);
+      const playedLeagueById = new Map(
+        playedLeagues.map((league) => [league.leagueId, league])
+      );
+
+      setLeaveLeagueChoices(
+        organizations.map((organization) => ({
+          leagueId: organization.id,
+          leagueName: organization.name,
+          playerId:
+            organization.player_id ??
+            playedLeagueById.get(organization.id)?.playerId ??
+            (activeProfile?.leagueId === organization.id ? activeProfile.playerId : null) ??
+            null,
+          role: organization.role
+        }))
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not deactivate the player.";
-      setErrorMessage(message);
-      Alert.alert("Player not deactivated", message);
+      setLeaveLeagueError(error instanceof Error ? error.message : "Could not load your leagues.");
     } finally {
-      setProfileBusy(false);
+      setLeaveLeagueLoading(false);
+    }
+  }
+
+  function closeLeaveLeaguePicker() {
+    if (leavingLeagueId) {
+      return;
+    }
+
+    setLeaveLeagueOpen(false);
+    setLeaveLeagueChoices([]);
+    setLeaveLeagueError(null);
+  }
+
+  function confirmLeaveLeague(choice: LeaveLeagueChoice) {
+    if (leavingLeagueId) {
+      return;
+    }
+
+    Alert.alert(
+      `Leave ${choice.leagueName}?`,
+      "You will no longer appear in this league, and it will be removed from Your leagues. " +
+        "Your rating and match history will be saved if you join again later.",
+      [
+        {
+          style: "cancel",
+          text: "Cancel"
+        },
+        {
+          onPress: () => void handleLeaveLeague(choice),
+          style: "destructive",
+          text: "Leave league"
+        }
+      ]
+    );
+  }
+
+  async function handleLeaveLeague(choice: LeaveLeagueChoice) {
+    if (!configured || leavingLeagueId) {
+      return;
+    }
+
+    setLeavingLeagueId(choice.leagueId);
+    setLeaveLeagueError(null);
+
+    try {
+      await ensureAnonymousSession();
+      await leaveLeague(choice.leagueId, choice.playerId);
+
+      const leftActiveLeague = activeProfile?.leagueId === choice.leagueId;
+
+      if (leftActiveLeague) {
+        await clearActiveLocalPlayerProfile();
+      }
+
+      await removeLocalPlayedLeague(choice.leagueId);
+      setLeaveLeagueOpen(false);
+      setLeaveLeagueChoices([]);
+      setLeaveLeagueError(null);
+
+      if (leftActiveLeague) {
+        resetActiveProfileState();
+      }
+
+      onLeagueLeft?.();
+      Alert.alert(
+        "League left",
+        `You have left ${choice.leagueName}. Your rating will be restored if you join this league again.`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not leave the league.";
+      setLeaveLeagueError(message);
+      Alert.alert("League not left", message);
+    } finally {
+      setLeavingLeagueId(null);
     }
   }
 
@@ -614,7 +683,7 @@ export function ProfileScreen({
     Alert.alert(
       "Delete account?",
       "Your LittlePickle login will become inaccessible immediately and will be permanently deleted after 30 days. " +
-        "Shared player profiles are separate league records; delete a player profile separately if you want it removed.",
+        "You will leave every league, your players will no longer appear in those leagues, and this app will be reset.",
       [
         {
           style: "cancel",
@@ -643,6 +712,28 @@ export function ProfileScreen({
     setErrorMessage(null);
 
     try {
+      const [organizations, playedLeagues] = await Promise.all([
+        getMyOrganizations(),
+        getLocalPlayedLeagues()
+      ]);
+      const playedLeagueById = new Map(
+        playedLeagues.map((league) => [league.leagueId, league])
+      );
+
+      await Promise.allSettled(
+        organizations.flatMap((organization) => {
+          const playerId =
+            organization.player_id ??
+            playedLeagueById.get(organization.id)?.playerId ??
+            (activeProfile?.leagueId === organization.id ? activeProfile.playerId : null) ??
+            null;
+
+          return playerId
+            ? [setMyLeaguePlayer(organization.id, playerId)]
+            : [];
+        })
+      );
+
       await requestAccountDeletion();
       let localCleanupFailed = false;
 
@@ -659,11 +750,12 @@ export function ProfileScreen({
       }
 
       resetActiveProfileState();
+      onAccountDeleted?.();
       Alert.alert(
         "Account deletion scheduled",
         localCleanupFailed
-          ? "Your account is no longer accessible and will be permanently deleted after 30 days. Restart the app to clear any remaining local data."
-          : "Your account is no longer accessible and will be permanently deleted after 30 days."
+          ? "Your account is no longer accessible, you have left every league, and permanent deletion is scheduled in 30 days. Restart the app to clear any remaining local data."
+          : "Your account is no longer accessible, you have left every league, and permanent deletion is scheduled in 30 days."
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not delete the account.";
@@ -690,6 +782,11 @@ export function ProfileScreen({
   function resetActiveProfileState() {
     setActiveProfile(null);
     setHistoryEditMatchId(null);
+    setLeaveLeagueChoices([]);
+    setLeaveLeagueError(null);
+    setLeaveLeagueLoading(false);
+    setLeaveLeagueOpen(false);
+    setLeavingLeagueId(null);
     setMatchHistory(null);
     setMatchHistoryOpen(false);
     setNameDraft("");
@@ -897,19 +994,24 @@ export function ProfileScreen({
               ))}
             </View>
 
-            {activeProfile ? (
+            {session ? (
               <Pressable
                 accessibilityLabel="Delete profile"
                 accessibilityRole="button"
-                disabled={profileBusy}
-                onPress={confirmDeactivatePlayer}
+                disabled={leaveLeagueLoading || Boolean(leavingLeagueId)}
+                onPress={() => void openLeaveLeaguePicker()}
                 style={({ pressed }) => [
                   styles.settingsDeleteButton,
                   pressed ? styles.settingsDeleteButtonPressed : null
                 ]}
               >
-                <Text style={[styles.deleteProfileText, profileBusy ? styles.deleteProfileTextDisabled : null]}>
-                  {profileBusy ? "Deleting..." : "Delete profile"}
+                <Text
+                  style={[
+                    styles.deleteProfileText,
+                    leaveLeagueLoading || leavingLeagueId ? styles.deleteProfileTextDisabled : null
+                  ]}
+                >
+                  {leaveLeagueLoading || leavingLeagueId ? "Loading leagues..." : "Delete profile"}
                 </Text>
               </Pressable>
             ) : null}
@@ -936,6 +1038,78 @@ export function ProfileScreen({
               </Pressable>
             ) : null}
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        onRequestClose={closeLeaveLeaguePicker}
+        visible={leaveLeagueOpen}
+      >
+        <View
+          accessibilityViewIsModal
+          style={[
+            styles.switcherScreen,
+            {
+              paddingBottom: insets.bottom + theme.space[20],
+              paddingTop: insets.top + theme.space[20]
+            }
+          ]}
+        >
+          <View style={styles.switcherHeader}>
+            <Text accessibilityRole="header" style={styles.switcherTitle}>
+              Delete profile
+            </Text>
+            <ActionButton
+              disabled={Boolean(leavingLeagueId)}
+              label="Close"
+              onPress={closeLeaveLeaguePicker}
+              variant="text"
+            />
+          </View>
+          <Text style={styles.switcherHelp}>
+            Choose the league you would like to leave. Your rating and match history will be saved if you join again.
+          </Text>
+          {leaveLeagueError ? (
+            <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+              {leaveLeagueError}
+            </Text>
+          ) : null}
+          {leaveLeagueLoading ? <ActivityIndicator color={theme.color.action.primary} /> : null}
+          <ScrollView contentContainerStyle={styles.leaveLeagueList}>
+            {leaveLeagueChoices.map((choice) => {
+              const leaving = leavingLeagueId === choice.leagueId;
+
+              return (
+                <Pressable
+                  accessibilityLabel={`Leave ${choice.leagueName}`}
+                  accessibilityRole="button"
+                  disabled={Boolean(leavingLeagueId)}
+                  key={choice.leagueId}
+                  onPress={() => confirmLeaveLeague(choice)}
+                  style={({ pressed }) => [
+                    styles.leaveLeagueRow,
+                    pressed ? styles.moreSettingsLinkPressed : null
+                  ]}
+                >
+                  <View style={styles.leaveLeagueText}>
+                    <Text style={styles.leaveLeagueName}>{choice.leagueName}</Text>
+                    <Text style={styles.nameEditorHelp}>
+                      {choice.role === "admin" ? "League admin" : "League player"}
+                    </Text>
+                  </View>
+                  {leaving ? (
+                    <ActivityIndicator color={theme.color.feedback.error} />
+                  ) : (
+                    <Text style={styles.deleteAccountText}>Leave</Text>
+                  )}
+                </Pressable>
+              );
+            })}
+            {!leaveLeagueLoading && leaveLeagueChoices.length === 0 && !leaveLeagueError ? (
+              <Text style={styles.emptyStateText}>You are not currently in any leagues.</Text>
+            ) : null}
+          </ScrollView>
         </View>
       </Modal>
 
@@ -1318,6 +1492,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: theme.space[16]
+  },
+  leaveLeagueList: {
+    gap: theme.layout.stackCompact,
+    paddingBottom: theme.space[20]
+  },
+  leaveLeagueName: {
+    ...theme.type.headingSection,
+    color: theme.color.text.primary
+  },
+  leaveLeagueRow: {
+    alignItems: "center",
+    backgroundColor: theme.color.surface.card,
+    borderColor: theme.color.border.subtle,
+    borderRadius: theme.radius.card,
+    borderWidth: theme.border.quiet,
+    flexDirection: "row",
+    gap: theme.layout.inlineDefault,
+    justifyContent: "space-between",
+    minHeight: theme.size.controlMinimumHeight,
+    padding: theme.space[16]
+  },
+  leaveLeagueText: {
+    flex: 1,
+    gap: theme.space[4]
   },
   loading: {
     marginTop: theme.space[40]

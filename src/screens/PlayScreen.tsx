@@ -68,6 +68,9 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
   );
   const showQuickActions =
     recommendations.length > 0 || activeMatches.length > 0 || completedMatches.length > 0;
+  const queuedPlayerCount = players.filter((player) => player.inSession && !player.isPlaying).length;
+  const playersNeededForMatch =
+    queuedPlayerCount > 0 && queuedPlayerCount < 4 ? 4 - queuedPlayerCount : 0;
 
   useEffect(() => {
     if (sessionEnded) {
@@ -194,7 +197,7 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
         styles.content,
         {
           paddingBottom: theme.size.navigationBottomHeight + insets.bottom + theme.layout.sectionGap,
-          paddingTop: insets.top + theme.space[20]
+          paddingTop: insets.top + theme.space[32]
         }
       ]}
       keyboardShouldPersistTaps="handled"
@@ -228,6 +231,12 @@ export function PlayScreen({ currentPlayerId = null, onSessionEnded, sessionId }
         </Text>
       ) : null}
       {loading ? <ActivityIndicator color={theme.color.action.primary} style={styles.loading} /> : null}
+      {!loading && playersNeededForMatch > 0 ? (
+        <Text accessibilityLiveRegion="polite" style={styles.queueGuidance}>
+          Add {playersNeededForMatch} more{" "}
+          {playersNeededForMatch === 1 ? "player" : "players"} to start a match
+        </Text>
+      ) : null}
       <View style={styles.matchList}>
         {recommendations.map((match) => (
           <MatchCard
@@ -325,6 +334,11 @@ const styles = StyleSheet.create({
   pageTitle: {
     ...theme.type.headingPage,
     color: theme.color.text.primary
+  },
+  queueGuidance: {
+    ...theme.type.bodySecondary,
+    color: theme.color.text.secondary,
+    marginTop: theme.layout.stackDefault
   },
   quickAction: {
     flex: 1,

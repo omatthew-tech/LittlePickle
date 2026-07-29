@@ -123,6 +123,8 @@ Live Play screen bridge:
 - Organization admins can update name, slug, court count, member roles, and roster players from Home.
 - Players are shared league records rather than auth-user-owned records; any device may select and manage the same player.
 - Profile edits and user switching update the locally selected shared player and flow through to queue and match cards.
+- Delete profile asks which league to leave. Leaving removes that membership and hides the player from active league views while retaining the league-specific rating and match history for a later rejoin.
+- Delete account leaves every league, clears locally saved league/player state, and returns the app to its initial Home experience before the existing 30-day account-deletion retention completes.
 - If there are no active recommendations and `EXPO_PUBLIC_MATCH_FLOW_API_URL` is set, Play asks FastAPI to regenerate and store recommendations against a versioned queue snapshot.
 - Starting a recommended match assigns the lowest open court, creates an active match, then refreshes active matches and recommendations only when another court is open.
 - Recommendations containing a player who has left the queue or is already in an active match are hidden. If no valid recommendations remain while a court is open, Play regenerates recommendations from the available players.

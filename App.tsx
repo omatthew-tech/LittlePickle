@@ -69,6 +69,14 @@ function AppShell() {
     setActiveQueueProfile(null);
   }, []);
 
+  const handleProfileReset = useCallback(() => {
+    setActiveSessionId(null);
+    setActiveQueueProfile(null);
+    setCreationFlowActive(false);
+    setHomeVisitKey((previousKey) => previousKey + 1);
+    setActiveDestination("home");
+  }, []);
+
   const handleSessionEnded = useCallback(() => {
     setActiveSessionId(null);
     setActiveQueueProfile(null);
@@ -105,8 +113,10 @@ function AppShell() {
         ) : null}
         {activeDestination === "profile" ? (
           <ProfileScreen
+            onAccountDeleted={handleProfileReset}
             onActiveProfileChanged={handleActivePlayerProfileChanged}
             onActiveProfileDeactivated={handleActivePlayerDeactivated}
+            onLeagueLeft={handleProfileReset}
           />
         ) : null}
         {!creationFlowActive ? (

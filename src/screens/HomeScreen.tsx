@@ -89,6 +89,7 @@ type QrCodeRef = {
 };
 
 type QrEmailStatus = "idle" | "sending" | "sent" | "error";
+type LeagueSearchStatus = "idle" | "searching" | "complete";
 
 const defaultMatchmakingRating = 3;
 
@@ -131,6 +132,7 @@ export function HomeScreen({
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
   const [localLeagues, setLocalLeagues] = useState<LocalPlayedLeague[]>([]);
   const [searchResults, setSearchResults] = useState<OrganizationSearchResult[]>([]);
+  const [leagueSearchStatus, setLeagueSearchStatus] = useState<LeagueSearchStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerPaused, setScannerPaused] = useState(false);
@@ -140,7 +142,7 @@ export function HomeScreen({
   const [joinError, setJoinError] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [organizationOpenSessions, setOrganizationOpenSessions] = useState<Record<string, OrganizationOpenSessionSummary[]>>({});
-  const [expandedRosterLeagueId, setExpandedRosterLeagueId] = useState<string | null>(null);
+  const [managedLeagueId, setManagedLeagueId] = useState<string | null>(null);
   const [organizationPlayers, setOrganizationPlayers] = useState<Record<string, OrganizationPlayerSummary[]>>({});
   const [playerDrafts, setPlayerDrafts] = useState<Record<string, PlayerDraft>>({});
   const [scoreModeUpdatingLeagueId, setScoreModeUpdatingLeagueId] = useState<string | null>(null);
@@ -162,6 +164,10 @@ export function HomeScreen({
       return secondLastPlayedAt.localeCompare(firstLastPlayedAt);
     });
   }, [leagueQuery, localLeagues, organizations]);
+  const joinableSearchResults = useMemo(() => {
+    const joinedLeagueIds = new Set(organizations.map((organization) => organization.id));
+    return searchResults.filter((organization) => !joinedLeagueIds.has(organization.id));
+  }, [organizations, searchResults]);
 
   const exactJoinNameMatches = useMemo(
     () =>
@@ -277,19 +283,26 @@ export function HomeScreen({
   useEffect(() => {
     if (!configured || leagueQuery.trim().length < 2 || createStep !== "home") {
       setSearchResults([]);
+      setLeagueSearchStatus("idle");
       return;
     }
 
     let cancelled = false;
 
+    setErrorMessage(null);
+    setSearchResults([]);
+    setLeagueSearchStatus("searching");
+
     searchOrganizations(leagueQuery)
       .then((results) => {
         if (!cancelled) {
           setSearchResults(results);
+          setLeagueSearchStatus("complete");
         }
       })
       .catch((error) => {
         if (!cancelled) {
+          setLeagueSearchStatus("idle");
           setErrorMessage(error instanceof Error ? error.message : "Could not search leagues.");
         }
       });
@@ -740,40 +753,31 @@ export function HomeScreen({
       await ensureAnonymousSession();
     }
 
-    const reusingActiveIdentity =
-      normalizedDisplayName(profile.displayName) === normalizedDisplayName(displayName);
-    const profileImagePath = reusingActiveIdentity ? profile.avatarPath ?? null : null;
     const joined = await joinLeagueQueue({
       displayName,
       organizationId: profile.leagueId,
       playerId,
-      profileImagePath
+      profileImagePath: null
     });
-    const identityDisplayName = reusingActiveIdentity
-      ? profile.displayName
-      : joined.player.display_name;
-    const identityAvatarPath = reusingActiveIdentity
-      ? profile.avatarPath ?? joined.player.profile_image_path
-      : joined.player.profile_image_path;
 
-    const savedProfile = await saveLocalGuestLeagueProfile({
-      avatarPath: identityAvatarPath,
-      displayName: identityDisplayName,
+    await saveLocalPlayedLeague({
       leagueId: joined.organization.id,
       leagueName: joined.organization.name,
-      playerId: joined.player.id,
-      rating: joined.player.rating,
-      sessionId: joined.session_id
+      locationText: joined.organization.location_text ?? null,
+      numberOfCourts: joined.organization.number_of_courts,
+      playerId: profile.playerId || null,
+      sessionId: joined.session_id,
+      slug: joined.organization.slug
     });
-    await syncAccountProfile(identityDisplayName, identityAvatarPath);
 
     onQueueProfileChanged({
       ...profile,
-      ...savedProfile,
       leagueLocationText: joined.organization.location_text ?? null,
+      leagueName: joined.organization.name,
       leagueNumberOfCourts: joined.organization.number_of_courts,
       leagueSlug: joined.organization.slug,
-      readOnly: false
+      readOnly: true,
+      sessionId: joined.session_id
     });
     onSessionSelected(joined.session_id);
     await loadHomeData();
@@ -1026,14 +1030,13 @@ export function HomeScreen({
     throw new Error("QR code image is not ready.");
   }
 
-  async function toggleRoster(organization: OrganizationSummary) {
-    if (expandedRosterLeagueId === organization.id) {
-      setExpandedRosterLeagueId(null);
-      return;
-    }
-
-    setExpandedRosterLeagueId(organization.id);
+  async function openLeagueManagement(organization: OrganizationSummary) {
+    setManagedLeagueId(organization.id);
     await loadOrganizationPlayers(organization.id);
+  }
+
+  function closeLeagueManagement() {
+    setManagedLeagueId(null);
   }
 
   async function loadOrganizationPlayers(organizationId: string) {
@@ -1211,14 +1214,33 @@ export function HomeScreen({
   }
 
   function renderSearchResults() {
-    if (searchResults.length === 0) {
+    if (leagueSearchStatus === "searching") {
+      return (
+        <View style={styles.searchStatus}>
+          <ActivityIndicator color={theme.color.action.primary} size="small" />
+          <Text accessibilityLiveRegion="polite" style={styles.emptyText}>
+            Searching leagues...
+          </Text>
+        </View>
+      );
+    }
+
+    if (joinableSearchResults.length === 0) {
+      if (leagueSearchStatus === "complete") {
+        return (
+          <Text accessibilityLiveRegion="polite" style={styles.emptyText}>
+            No leagues found.
+          </Text>
+        );
+      }
+
       return null;
     }
 
     return (
       <View style={styles.list}>
         <Text style={styles.sectionLabel}>Search results</Text>
-        {searchResults.map((organization) => (
+        {joinableSearchResults.map((organization) => (
           <Pressable
             accessibilityLabel={`Join ${organization.name} queue`}
             accessibilityRole="button"
@@ -1277,12 +1299,9 @@ export function HomeScreen({
 
     return (
       <View style={[styles.list, styles.yourLeaguesSection]}>
-        <Text style={styles.sectionTitle}>Your leagues</Text>
+        <Text style={[styles.sectionTitle, styles.yourLeaguesTitle]}>Your leagues</Text>
         {visibleOrganizations.map((organization) => {
           const openSessions = organizationOpenSessions[organization.id] ?? [];
-          const isExpanded = expandedRosterLeagueId === organization.id;
-          const players = organizationPlayers[organization.id] ?? [];
-          const playerDraft = playerDrafts[organization.id] ?? { displayName: "" };
           const activePlayers = activePlayersText(openSessions[0]?.active_player_count ?? 0);
 
           return (
@@ -1296,8 +1315,8 @@ export function HomeScreen({
                   {organization.role === "admin" ? (
                     <ActionButton
                       disabled={loading}
-                      label={isExpanded ? "Close" : "Manage"}
-                      onPress={() => void toggleRoster(organization)}
+                      label="Manage"
+                      onPress={() => void openLeagueManagement(organization)}
                       variant="text"
                     />
                   ) : null}
@@ -1309,75 +1328,115 @@ export function HomeScreen({
                   />
                 </View>
               </View>
-              {isExpanded ? (
-                <View style={styles.rosterPanel}>
-                  <View style={styles.scoreModeRow}>
-                    <View style={styles.leagueText}>
-                      <Text style={styles.memberName}>Score mode</Text>
-                      <Text style={styles.leagueMeta}>
-                        {organization.score_mode_enabled !== false
-                          ? "Players enter final scores."
-                          : "Players select the winning team."}
-                      </Text>
-                    </View>
-                    <Switch
-                      accessibilityLabel="Score mode"
-                      accessibilityHint="Changes how league match results are recorded"
-                      disabled={loading || scoreModeUpdatingLeagueId === organization.id}
-                      ios_backgroundColor={theme.color.action.disabled}
-                      onValueChange={(enabled) => confirmScoreModeChange(organization, enabled)}
-                      thumbColor={theme.color.surface.card}
-                      trackColor={{
-                        false: theme.color.action.disabled,
-                        true: theme.color.action.primary
-                      }}
-                      value={organization.score_mode_enabled !== false}
-                    />
-                  </View>
-                  <View style={styles.addPlayerRow}>
-                    <TextInput
-                      accessibilityLabel="Player name"
-                      onChangeText={(value) => updatePlayerDraft(organization.id, value)}
-                      placeholder="First and last name"
-                      placeholderTextColor={theme.color.text.secondary}
-                      style={[styles.settingsInput, styles.playerNameInput]}
-                      value={playerDraft.displayName}
-                    />
-                  </View>
-                  <ActionButton
-                    disabled={loading || !playerDraft.displayName.trim()}
-                    label="Add player"
-                    onPress={() => void addOrganizationPlayer(organization)}
-                  />
-                  {players.map((player) => (
-                    <View key={player.id} style={styles.playerSummaryRow}>
-                      <View style={styles.leagueText}>
-                        <Text style={styles.memberName}>{player.display_name}</Text>
-                        <Text style={styles.leagueMeta}>
-                          {player.active
-                            ? "Active"
-                            : player.deletion_scheduled_at
-                              ? `Inactive · deletion ${formatShortDate(player.deletion_scheduled_at)}`
-                              : "Inactive"}
-                        </Text>
-                      </View>
-                      {!player.active && !player.personal_data_deleted_at ? (
-                        <ActionButton
-                          disabled={loading}
-                          label="Reactivate"
-                          onPress={() => void reactivateOrganizationPlayer(organization, player)}
-                          variant="text"
-                        />
-                      ) : null}
-                    </View>
-                  ))}
-                  {!loading && players.length === 0 ? <Text style={styles.emptyText}>No players yet.</Text> : null}
-                </View>
-              ) : null}
             </View>
           );
         })}
       </View>
+    );
+  }
+
+  function renderLeagueManagementModal() {
+    const organization = organizations.find((item) => item.id === managedLeagueId);
+
+    if (!organization) {
+      return null;
+    }
+
+    const players = organizationPlayers[organization.id] ?? [];
+    const playerDraft = playerDrafts[organization.id] ?? { displayName: "" };
+
+    return (
+      <ScrollView
+        contentContainerStyle={[
+          styles.manageDialogScrollContent,
+          {
+            paddingBottom: insets.bottom + theme.layout.screenInset,
+            paddingTop: insets.top + theme.layout.screenInset
+          }
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.manageDialog}>
+          <View style={styles.manageHeader}>
+            <Text accessibilityRole="header" style={[styles.sectionTitle, styles.manageTitle]}>
+              Manage {organization.name}
+            </Text>
+            <ActionButton label="Close" onPress={closeLeagueManagement} variant="text" />
+          </View>
+          <View style={styles.scoreModeRow}>
+            <View style={styles.leagueText}>
+              <Text style={styles.memberName}>Score mode</Text>
+              <Text style={styles.leagueMeta}>
+                {organization.score_mode_enabled !== false
+                  ? "Players enter final scores."
+                  : "Players select the winning team."}
+              </Text>
+            </View>
+            <Switch
+              accessibilityHint="Changes how league match results are recorded"
+              accessibilityLabel="Score mode"
+              disabled={loading || scoreModeUpdatingLeagueId === organization.id}
+              ios_backgroundColor={theme.color.action.disabled}
+              onValueChange={(enabled) => confirmScoreModeChange(organization, enabled)}
+              thumbColor={theme.color.surface.card}
+              trackColor={{
+                false: theme.color.action.disabled,
+                true: theme.color.action.primary
+              }}
+              value={organization.score_mode_enabled !== false}
+            />
+          </View>
+          <Text style={styles.sectionLabel}>Add a player</Text>
+          <View style={styles.addPlayerRow}>
+            <TextInput
+              accessibilityLabel="Player name"
+              autoCapitalize="words"
+              onChangeText={(value) => updatePlayerDraft(organization.id, value)}
+              placeholder="First and last name"
+              placeholderTextColor={theme.color.text.secondary}
+              style={[styles.settingsInput, styles.playerNameInput]}
+              value={playerDraft.displayName}
+            />
+          </View>
+          <ActionButton
+            disabled={loading || !playerDraft.displayName.trim()}
+            label="Add player"
+            onPress={() => void addOrganizationPlayer(organization)}
+          />
+          <Text style={styles.sectionLabel}>Players</Text>
+          {errorMessage ? (
+            <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+              {errorMessage}
+            </Text>
+          ) : null}
+          {loading ? <ActivityIndicator color={theme.color.action.primary} /> : null}
+          {players.map((player) => (
+            <View key={player.id} style={styles.playerSummaryRow}>
+              <View style={styles.leagueText}>
+                <Text style={styles.memberName}>{player.display_name}</Text>
+                <Text style={styles.leagueMeta}>
+                  {player.active
+                    ? "Active"
+                    : player.deletion_scheduled_at
+                      ? `Inactive · deletion ${formatShortDate(player.deletion_scheduled_at)}`
+                      : "Inactive"}
+                </Text>
+              </View>
+              {!player.active && !player.personal_data_deleted_at ? (
+                <ActionButton
+                  disabled={loading}
+                  label="Reactivate"
+                  onPress={() => void reactivateOrganizationPlayer(organization, player)}
+                  variant="text"
+                />
+              ) : null}
+            </View>
+          ))}
+          {!loading && players.length === 0 ? (
+            <Text style={styles.emptyText}>No players yet.</Text>
+          ) : null}
+        </View>
+      </ScrollView>
     );
   }
 
@@ -1617,7 +1676,7 @@ export function HomeScreen({
           {
             paddingBottom:
               createStep === "home"
-                ? theme.size.navigationBottomHeight + insets.bottom + theme.layout.sectionGap
+                ? theme.size.navigationBottomHeight + insets.bottom + theme.space[16]
                 : insets.bottom + theme.layout.sectionGap,
             paddingTop: insets.top + (createStep === "home" ? theme.space[32] : theme.space[20])
           }
@@ -1628,6 +1687,14 @@ export function HomeScreen({
       >
         {createStep === "home" ? renderHome() : renderCreateFlow()}
       </ScrollView>
+      <Modal
+        animationType="slide"
+        onRequestClose={closeLeagueManagement}
+        transparent
+        visible={Boolean(managedLeagueId)}
+      >
+        <View style={styles.modalBackdrop}>{renderLeagueManagementModal()}</View>
+      </Modal>
       <Modal animationType="fade" transparent visible={scannerOpen} onRequestClose={() => setScannerOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.scannerDialog}>
@@ -1700,7 +1767,6 @@ export function HomeScreen({
                         </View>
                         <View style={styles.leagueText}>
                           <Text style={styles.memberName}>{match.display_name}</Text>
-                          {match.profile_image_path ? <Text style={styles.leagueMeta}>Profile photo</Text> : null}
                         </View>
                       </Pressable>
                     );
@@ -1832,16 +1898,15 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     marginTop: "auto",
-    paddingBottom: theme.space[12],
     paddingTop: theme.layout.sectionGap
   },
   createLeaguePrompt: {
-    ...theme.type.bodyDefault,
+    ...theme.type.bodySecondary,
     color: theme.color.text.primary,
     textAlign: "center"
   },
   createLeagueLink: {
-    ...theme.type.labelAction,
+    ...theme.type.bodySecondary,
     color: theme.color.action.primary,
     fontFamily: theme.font.interfaceBold,
     fontWeight: "700",
@@ -1961,8 +2026,34 @@ const styles = StyleSheet.create({
   list: {
     gap: theme.layout.stackCompact
   },
+  manageDialog: {
+    backgroundColor: theme.color.surface.card,
+    borderColor: theme.color.border.subtle,
+    borderRadius: theme.radius.card,
+    borderWidth: theme.border.quiet,
+    gap: theme.layout.stackDefault,
+    padding: theme.layout.cardPadding,
+    width: "100%"
+  },
+  manageDialogScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: theme.layout.screenInset
+  },
+  manageHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: theme.layout.inlineDefault,
+    justifyContent: "space-between"
+  },
+  manageTitle: {
+    flex: 1
+  },
   yourLeaguesSection: {
     marginTop: theme.space[16]
+  },
+  yourLeaguesTitle: {
+    marginBottom: theme.layout.stackDefault - theme.layout.stackCompact
   },
   matchList: {
     gap: theme.layout.stackCompact
@@ -2013,8 +2104,11 @@ const styles = StyleSheet.create({
     flex: 1
   },
   playerSummaryRow: {
+    alignItems: "center",
     borderColor: theme.color.border.subtle,
     borderTopWidth: theme.border.quiet,
+    flexDirection: "row",
+    gap: theme.layout.inlineDefault,
     paddingTop: theme.space[8]
   },
   qrPanel: {
@@ -2025,12 +2119,6 @@ const styles = StyleSheet.create({
     borderWidth: theme.border.quiet,
     gap: theme.layout.stackCompact,
     padding: theme.layout.cardPadding
-  },
-  rosterPanel: {
-    borderColor: theme.color.border.subtle,
-    borderTopWidth: theme.border.quiet,
-    gap: theme.layout.stackCompact,
-    paddingTop: theme.layout.stackDefault
   },
   scoreModeRow: {
     alignItems: "center",
@@ -2056,6 +2144,11 @@ const styles = StyleSheet.create({
     gap: theme.layout.stackDefault,
     margin: theme.layout.screenInset,
     padding: theme.layout.cardPadding
+  },
+  searchStatus: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: theme.space[8]
   },
   sectionLabel: {
     ...theme.type.bodySecondary,

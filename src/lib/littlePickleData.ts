@@ -54,6 +54,7 @@ export type OrganizationSummary = {
   name: string;
   slug: string;
   number_of_courts: number;
+  player_id?: string | null;
   role: OrganizationMemberRole;
   score_mode_enabled: boolean;
 };
@@ -156,6 +157,12 @@ export type DeactivatePlayerResult = {
   deactivated_at: string;
   deletion_scheduled_at: string;
   player_id: string;
+};
+
+export type LeaveLeagueResult = {
+  organization_id: string;
+  player_id: string | null;
+  rating: number | null;
 };
 
 export type JoinLeagueQueueInput = {
@@ -295,6 +302,20 @@ export async function updateOrganizationPlayer(input: UpdateOrganizationPlayerIn
 export async function deactivatePlayer(playerId: string) {
   return rpc<DeactivatePlayerResult>("deactivate_player", {
     p_player_id: playerId
+  });
+}
+
+export async function setMyLeaguePlayer(organizationId: string, playerId: string) {
+  return rpc<{ organization_id: string; player_id: string }>("set_my_league_player", {
+    p_organization_id: organizationId,
+    p_player_id: playerId
+  });
+}
+
+export async function leaveLeague(organizationId: string, playerId?: string | null) {
+  return rpc<LeaveLeagueResult>("leave_my_league", {
+    p_organization_id: organizationId,
+    p_player_id: playerId ?? null
   });
 }
 
